@@ -30,22 +30,23 @@ export default function Login() {
     return !nextErrors.mobile && !nextErrors.password;
   };
 
-  const onSubmit = async (event) => {
+  const onSubmit = (event) => {
     event.preventDefault();
     if (!validate()) return;
 
     setIsSubmitting(true);
-    try {
-      await login(form.mobile, form.password);
-      navigate("/dashboard");
-    } catch (error) {
-      setErrors({
-        mobile: "",
-        password: error.message || "Login failed",
-      });
-    } finally {
+    // Simulate network delay
+    setTimeout(() => {
+      if (login(form.mobile, form.password)) {
+        navigate("/dashboard");
+      } else {
+        setErrors({ 
+          mobile: "", 
+          password: t("error.loginInvalidDemo") 
+        });
+      }
       setIsSubmitting(false);
-    }
+    }, 300);
   };
 
   return (

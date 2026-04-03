@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, KeyRound, Lock, Phone } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -11,8 +11,6 @@ export default function ForgotPassword() {
   const [form, setForm] = useState({ mobile: "", otp: "", newPassword: "" });
   const [errors, setErrors] = useState({ mobile: "", otp: "", newPassword: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [generatedOTP, setGeneratedOTP] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
 
   // Generate and store OTP on mobile submit
   const handleSendOTP = (e) => {
@@ -29,16 +27,14 @@ export default function ForgotPassword() {
     setTimeout(() => {
       // Generate 6-digit OTP
       const otp = String(Math.floor(100000 + Math.random() * 900000));
-      setGeneratedOTP(otp);
       localStorage.setItem(`agrimitra-otp-${form.mobile}`, otp);
       
       // Demo: log OTP to console
       console.log(
-        `%c📧 DEMO OTP for ${form.mobile}: ${otp}`,
+        `%c${t("otp.generatedLog", { mobile: form.mobile, otp })}`,
         "color: #16a34a; font-weight: bold; font-size: 14px;"
       );
 
-      setOtpSent(true);
       setStep(2);
       setErrors({ mobile: "", otp: "", newPassword: "" });
       setIsSubmitting(false);
@@ -58,7 +54,7 @@ export default function ForgotPassword() {
     // Check OTP
     const storedOTP = localStorage.getItem(`agrimitra-otp-${form.mobile}`);
     if (form.otp !== storedOTP) {
-      nextErrors.otp = "Invalid OTP. Check browser console for demo OTP.";
+      nextErrors.otp = t("error.otpInvalid");
       setErrors(nextErrors);
       return;
     }
@@ -88,7 +84,7 @@ export default function ForgotPassword() {
       localStorage.setItem(`agrimitra-pwd-${form.mobile}`, form.newPassword);
       localStorage.removeItem(`agrimitra-otp-${form.mobile}`);
       
-      console.log(`%c✓ Password reset successfully!`, "color: #16a34a; font-weight: bold;");
+      console.log(`%c${t("otp.resetLog")}`, "color: #16a34a; font-weight: bold;");
       navigate("/login");
     }, 500);
   };
@@ -156,7 +152,7 @@ export default function ForgotPassword() {
               </div>
               {errors.otp ? <p className="mt-1 text-xs text-destructive">{errors.otp}</p> : null}
               <p className="mt-2 text-xs text-muted-foreground">
-                💡 Demo: Check browser console (F12) for OTP
+                {t("otp.demoHint")}
               </p>
             </div>
 
@@ -164,7 +160,7 @@ export default function ForgotPassword() {
               type="submit"
               className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-5 py-3.5 text-base font-semibold text-primary-foreground hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition duration-300"
             >
-              Verify OTP
+              {t("btn.verifyOtp")}
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
@@ -193,7 +189,7 @@ export default function ForgotPassword() {
               disabled={isSubmitting}
               className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-5 py-3.5 text-base font-semibold text-primary-foreground hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {t("form.new_password")}
+              {t("btn.resetPassword")}
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>

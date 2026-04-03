@@ -13,8 +13,7 @@ import authRoutes from './routes/authRoutes.js';
 import cropRoutes from './routes/cropRoutes.js';
 import schemeRoutes from './routes/schemeRoutes.js';
 import newsRoutes from './routes/newsRoutes.js';
-import schemesRouter from './routes/schemes.js';
-import newsRouter from './routes/news.js';
+import aiAssistantRoutes from './routes/aiAssistantRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -74,37 +73,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/api/health/ai', (req, res) => {
-  const roboflowConfigured = Boolean(config.roboflowApiKey && config.roboflowUrl);
-  const geminiConfigured = Boolean(config.geminiApiKey);
-  const openrouterConfigured = Boolean(config.openrouterApiKey);
-
-  const canRunVisionFallback = geminiConfigured || openrouterConfigured;
-  const detectionReady = roboflowConfigured || canRunVisionFallback;
-
-  res.status(detectionReady ? 200 : 503).json({
-    status: detectionReady ? 'ok' : 'degraded',
-    providerOrder: config.llmProvider || 'auto',
-    cropDetection: {
-      roboflowConfigured,
-      roboflowUrlSet: Boolean(config.roboflowUrl),
-      geminiConfigured,
-      openrouterConfigured,
-      canRunVisionFallback,
-      detectionReady,
-    },
-    requestId: req.requestId,
-    timestamp: new Date().toISOString(),
-  });
-});
-
 // --- Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/crop', cropRoutes);
 app.use('/api/schemes', schemeRoutes);
 app.use('/api/news', newsRoutes);
-app.use('/api/schemes', schemesRouter);
-app.use('/api/news', newsRouter);
+app.use('/api/ai-assistant', aiAssistantRoutes);
 
 // --- 404 ---
 app.use((req, res) => {
