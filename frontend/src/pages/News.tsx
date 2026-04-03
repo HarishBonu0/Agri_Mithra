@@ -4,19 +4,19 @@ import { ArrowRight, Tags } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
-import { api } from "@/lib/api";
 
 const categories = ["news.all", "news.crops", "news.market", "news.policy", "news.technology"];
+const API_BASE_URL = "http://127.0.0.1:5000";
 
 type NewsCategory = "news.crops" | "news.market" | "news.policy" | "news.technology";
 
 type NewsArticle = {
   title: string;
   summary: string;
-  url?: string;
-  source?: string;
-  category?: NewsCategory;
-  publishedAt?: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+  category: NewsCategory;
 };
 
 const inferCategory = (text: string): NewsCategory => {
@@ -27,8 +27,7 @@ const inferCategory = (text: string): NewsCategory => {
   return "news.crops";
 };
 
-const getRelativeTime = (isoDate?: string): string => {
-  if (!isoDate) return "recent";
+const getRelativeTime = (isoDate: string): string => {
   const publishedMs = new Date(isoDate).getTime();
   if (Number.isNaN(publishedMs)) return "recent";
 
@@ -42,8 +41,8 @@ const getRelativeTime = (isoDate?: string): string => {
 };
 
 export default function News() {
-  const { t } = useI18n();
-  const { isLoggedIn, token } = useAuth();
+  const { t, lang } = useI18n();
+  const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const [active, setActive] = useState("news.all");
   const [articles, setArticles] = useState<NewsArticle[]>([]);
@@ -51,7 +50,7 @@ export default function News() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isLoggedIn || !token) {
+    if (!isLoggedIn) {
       setLoading(false);
       return;
     }
@@ -61,29 +60,37 @@ export default function News() {
         setLoading(true);
         setError(null);
 
-        const response = await api.news.list(token);
-        const normalized = (response.data || []).map((item: any) => {
-          const text = `${item.title || ""} ${item.summary || ""}`;
-          return {
-            title: item.title || "Untitled",
-            summary: item.summary || "No summary available",
-            url: item.url || "",
-            source: item.source || "AgriNews",
-            category: item.category || inferCategory(text),
-            publishedAt: item.publishedAt || new Date().toISOString(),
-          } as NewsArticle;
-        });
+        const apiLang = lang === "te" ? "te" : "en";
+        const region = apiLang === "te" ? "ap" : "global";
 
-        setArticles(normalized);
-      } catch (err: any) {
-        setError(err.message || "Unable to fetch live news");
+        const response = await fetch(`${API_BASE_URL}/api/news/headlines?limit=30&lang=${apiLang}&region=${region}`);
+
+        if (!response.ok) {
+          throw new Error(`News API request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const liveArticles = payload.articles ?? [];
+        setArticles(liveArticles);
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setError((err as Error).message || "Unable to fetch live news");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchNews();
-  }, [isLoggedIn, token]);
+
+    const refreshHandle = window.setInterval(() => {
+      fetchNews();
+    }, 5 * 60 * 1000);
+
+    return () => {
+      window.clearInterval(refreshHandle);
+    };
+  }, [isLoggedIn, lang]);
 
   const filtered = useMemo(() => {
     return active === "news.all" ? articles : articles.filter((a) => a.category === active);
