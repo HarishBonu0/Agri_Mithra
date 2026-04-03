@@ -32,7 +32,7 @@ export function ProfileDropdown() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const userInitial = user?.name?.[0]?.toUpperCase() || "U";
+  const userInitial = user?.name?.[0]?.toUpperCase() || t("auth.defaultFarmer")[0]?.toUpperCase() || "U";
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -54,7 +54,7 @@ export function ProfileDropdown() {
               {t("profile.name")}
             </p>
             <p className="text-sm font-semibold text-foreground mt-1">
-              {user?.name || "Farmer"}
+              {user?.name || t("auth.defaultFarmer")}
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               <span className="font-semibold">{t("profile.mobile")}:</span> {user?.mobile}

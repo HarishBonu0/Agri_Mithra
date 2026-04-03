@@ -21,13 +21,13 @@ export default function CropAssistant() {
     return (
       <div className="max-w-2xl mx-auto flex flex-col items-center justify-center h-[200px]">
         <div className="text-center">
-          <p className="text-lg font-semibold text-foreground mb-4">Login Required</p>
-          <p className="text-muted-foreground mb-6">Please login to access Crop Assistant</p>
+          <p className="text-lg font-semibold text-foreground mb-4">{t("auth.loginRequired")}</p>
+          <p className="text-muted-foreground mb-6">{t("assistant.loginPrompt")}</p>
           <button
             onClick={() => navigate("/login")}
             className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition"
           >
-            Go to Login
+            {t("auth.goToLogin")}
           </button>
         </div>
       </div>
@@ -40,14 +40,14 @@ export default function CropAssistant() {
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
-      setError("Please upload an image file");
+      setError(t("assistant.invalidImageType"));
       setHasImage(false);
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setError("Image must be less than 5MB");
+      setError(t("assistant.invalidImageSize"));
       setHasImage(false);
       return;
     }
@@ -108,7 +108,7 @@ export default function CropAssistant() {
               <div className="text-center">
                 <p className="text-sm font-medium text-foreground">{t("assistant.upload_prompt")}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  {hasImage ? "✓ Image uploaded" : "PNG, JPG up to 5MB"}
+                  {hasImage ? t("assistant.uploaded") : t("assistant.imageFormat")}
                 </p>
               </div>
             </div>
@@ -174,7 +174,7 @@ export default function CropAssistant() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground font-medium">{t("assistant.disease")}</p>
-                <p className="text-lg font-heading font-bold text-foreground">Leaf Blight</p>
+                <p className="text-lg font-heading font-bold text-foreground">{t("assistant.diseaseName")}</p>
               </div>
             </div>
 
@@ -187,7 +187,7 @@ export default function CropAssistant() {
                 <p className="text-xs text-muted-foreground font-medium">{t("assistant.risk")}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <ShieldAlert className="h-5 w-5 text-destructive" />
-                  <span className="text-lg font-heading font-bold text-destructive">High</span>
+                  <span className="text-lg font-heading font-bold text-destructive">{t("assistant.highRisk")}</span>
                 </div>
               </div>
             </div>
@@ -198,10 +198,10 @@ export default function CropAssistant() {
                 <p className="text-sm font-semibold text-foreground">{t("assistant.solution")}</p>
               </div>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><span className="text-primary font-bold">•</span>Apply Mancozeb fungicide at 2.5g/litre</li>
-                <li className="flex gap-2"><span className="text-primary font-bold">•</span>Remove infected leaves immediately</li>
-                <li className="flex gap-2"><span className="text-primary font-bold">•</span>Ensure proper drainage in fields</li>
-                <li className="flex gap-2"><span className="text-primary font-bold">•</span>Re-scan in 7 days to monitor progress</li>
+                <li className="flex gap-2"><span className="text-primary font-bold">•</span>{t("assistant.step1")}</li>
+                <li className="flex gap-2"><span className="text-primary font-bold">•</span>{t("assistant.step2")}</li>
+                <li className="flex gap-2"><span className="text-primary font-bold">•</span>{t("assistant.step3")}</li>
+                <li className="flex gap-2"><span className="text-primary font-bold">•</span>{t("assistant.step4")}</li>
               </ul>
             </div>
 

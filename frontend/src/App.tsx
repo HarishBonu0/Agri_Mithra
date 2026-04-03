@@ -14,6 +14,7 @@ import Dashboard from "./pages/Dashboard";
 import CropAssistant from "./pages/CropAssistant";
 import SchemeFinder from "./pages/SchemeFinder";
 import News from "./pages/News";
+import AIAssistant from "./pages/AIAssistant";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,14 @@ const App = () => (
                 element={
                   <AppLayout>
                     <News />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/ai-assistant"
+                element={
+                  <AppLayout>
+                    <AIAssistant />
                   </AppLayout>
                 }
               />

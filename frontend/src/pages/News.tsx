@@ -69,30 +69,30 @@ const isAgricultureRelated = (text: string): boolean => {
   return AGRI_KEYWORDS.some((keyword) => normalized.includes(keyword));
 };
 
-const getRelativeTime = (isoDate: string): string => {
+const getRelativeTime = (isoDate: string, t: (key: string, values?: Record<string, string | number>) => string): string => {
   const publishedMs = new Date(isoDate).getTime();
   if (Number.isNaN(publishedMs)) {
-    return "time unknown";
+    return t("news.timeUnknown");
   }
 
   const diffMs = Date.now() - publishedMs;
   const minutes = Math.max(1, Math.floor(diffMs / 60000));
 
   if (minutes < 60) {
-    return `${minutes} min ago`;
+    return t("news.minAgo", { count: minutes });
   }
 
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
-    return `${hours} hr ago`;
+    return t("news.hrAgo", { count: hours });
   }
 
   const days = Math.floor(hours / 24);
-  return `${days} day${days > 1 ? "s" : ""} ago`;
+  return t(days > 1 ? "news.daysAgo" : "news.dayAgo", { count: days });
 };
 
 export default function News() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const [active, setActive] = useState("news.all");
@@ -110,42 +110,20 @@ export default function News() {
 
     const fetchNews = async () => {
       const controller = new AbortController();
-      const apiKey = import.meta.env.VITE_NEWS_API_KEY;
-      if (!apiKey) {
-        setError("Missing VITE_NEWS_API_KEY in frontend/.env");
-        setLoading(false);
-        return;
-      }
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
       try {
         setLoading(true);
         setError(null);
 
-        const keywordQuery = encodeURIComponent("(agriculture OR farming OR farmer OR crop OR agritech OR irrigation OR livestock)");
-        const agricultureDomains = encodeURIComponent("agriculture.com,agriland.ie,farmprogress.com,agri-pulse.com,thecattlesite.com");
+        const response = await fetch(`${apiBaseUrl}/api/news?lang=${lang}`, { signal: controller.signal });
 
-        const primaryUrl = `https://newsapi.org/v2/everything?q=${keywordQuery}&searchIn=title,description&language=en&sortBy=publishedAt&pageSize=50&apiKey=${apiKey}`;
-        const domainUrl = `https://newsapi.org/v2/everything?domains=${agricultureDomains}&language=en&sortBy=publishedAt&pageSize=50&apiKey=${apiKey}`;
-
-        const [primaryRes, domainRes] = await Promise.all([
-          fetch(primaryUrl, { signal: controller.signal }),
-          fetch(domainUrl, { signal: controller.signal }),
-        ]);
-
-        if (!primaryRes.ok) {
-          throw new Error(`News API request failed with status ${primaryRes.status}`);
+        if (!response.ok) {
+          throw new Error(`News API request failed with status ${response.status}`);
         }
 
-        if (!domainRes.ok) {
-          throw new Error(`News API request failed with status ${domainRes.status}`);
-        }
-
-        const [primaryPayload, domainPayload] = await Promise.all([primaryRes.json(), domainRes.json()]);
-
-        const combinedArticles = [
-          ...(primaryPayload.articles ?? []),
-          ...(domainPayload.articles ?? []),
-        ];
+        const payload = await response.json();
+        const combinedArticles = payload.articles ?? [];
 
         setFetchedCount(combinedArticles.length);
 
@@ -163,10 +141,10 @@ export default function News() {
             const text = `${item.title ?? ""} ${item.description ?? ""} ${item.content ?? ""}`;
             return {
               title: item.title,
-              summary: item.description || "No summary available.",
+              summary: item.description || t("news.noSummary"),
               url: item.url,
               image: item.urlToImage,
-              source: item.source?.name || "Unknown source",
+              source: item.source?.name || t("news.sourceUnknown"),
               publishedAt: item.publishedAt,
               category: inferCategory(text),
             };
@@ -194,7 +172,7 @@ export default function News() {
     return () => {
       window.clearInterval(refreshHandle);
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, lang]);
 
   const filtered = useMemo(() => {
     return active === "news.all" ? articles : articles.filter((a) => a.category === active);
@@ -204,13 +182,13 @@ export default function News() {
     return (
       <div className="max-w-5xl mx-auto flex flex-col items-center justify-center h-[300px]">
         <div className="text-center">
-          <p className="text-lg font-semibold text-foreground mb-4">Login Required</p>
-          <p className="text-muted-foreground mb-6">Please login to access News</p>
+          <p className="text-lg font-semibold text-foreground mb-4">{t("auth.loginRequired")}</p>
+          <p className="text-muted-foreground mb-6">{t("news.loginPrompt")}</p>
           <button
             onClick={() => navigate("/login")}
             className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition"
           >
-            Go to Login
+            {t("auth.goToLogin")}
           </button>
         </div>
       </div>
@@ -222,7 +200,7 @@ export default function News() {
       <h1 className="font-heading text-2xl font-bold text-foreground">{t("news.title")}</h1>
       {!loading && !error && (
         <p className="text-xs text-muted-foreground">
-          Fetched {fetchedCount} live articles, showing {matchedCount} agriculture-related articles.
+          {t("news.fetchedSummary", { fetched: fetchedCount, matched: matchedCount })}
         </p>
       )}
 
@@ -243,10 +221,10 @@ export default function News() {
         ))}
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground">Loading live agriculture news...</p>}
+      {loading && <p className="text-sm text-muted-foreground">{t("news.loading")}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!loading && !error && filtered.length === 0 && (
-        <p className="text-sm text-muted-foreground">No live agriculture news found for this category.</p>
+        <p className="text-sm text-muted-foreground">{t("news.noResults")}</p>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -276,7 +254,7 @@ export default function News() {
               </h3>
               <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{article.summary}</p>
               <p className="text-[11px] text-muted-foreground mt-2">
-                {article.source} • {getRelativeTime(article.publishedAt)}
+                {article.source} • {getRelativeTime(article.publishedAt, t)}
               </p>
               <a
                 href={article.url}

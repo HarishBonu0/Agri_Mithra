@@ -1,17 +1,19 @@
 import { Search, Globe } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useI18n } from "@/lib/i18n";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 export function TopNavbar() {
   const { lang, setLang, t } = useI18n();
+  const navigate = useNavigate();
 
   return (
     <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
-      <div className="flex items-center gap-3 md:hidden">
+      <div className="flex items-center gap-3 md:hidden cursor-pointer" onClick={() => navigate("/home")}>
         <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
           <span className="text-primary-foreground font-heading font-bold text-xs">AM</span>
         </div>
-        <span className="font-heading font-semibold text-foreground">AgriMithra</span>
+        <span className="font-heading font-semibold text-foreground">{t("brand.name")}</span>
       </div>
 
       <div className="hidden md:flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5 w-72">

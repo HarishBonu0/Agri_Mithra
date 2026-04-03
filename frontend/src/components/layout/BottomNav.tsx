@@ -1,4 +1,4 @@
-import { LayoutDashboard, Scan, MessageSquare, Newspaper } from "lucide-react";
+import { LayoutDashboard, Scan, MessageSquare, Newspaper, Bot } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useI18n } from "@/lib/i18n";
 
@@ -7,6 +7,7 @@ const navItems = [
   { key: "nav.assistant", url: "/assistant", icon: Scan },
   { key: "nav.schemes", url: "/schemes", icon: MessageSquare },
   { key: "nav.news", url: "/news", icon: Newspaper },
+  { key: "nav.aiAssistant", url: "/ai-assistant", icon: Bot },
 ];
 
 export function BottomNav() {

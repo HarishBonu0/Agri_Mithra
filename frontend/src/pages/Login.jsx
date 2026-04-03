@@ -42,7 +42,7 @@ export default function Login() {
       } else {
         setErrors({ 
           mobile: "", 
-          password: t("error.password_required") + " (Demo: use signup credentials)" 
+          password: t("error.loginInvalidDemo") 
         });
       }
       setIsSubmitting(false);

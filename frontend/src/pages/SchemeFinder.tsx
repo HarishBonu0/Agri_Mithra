@@ -7,22 +7,24 @@ import { useNavigate } from "react-router-dom";
 
 interface Message {
   role: "user" | "bot";
-  text: string;
+  text?: string;
+  key?: string;
+  params?: Record<string, string | number>;
 }
 
 const quickQuestions = [
-  "PM Kisan eligibility",
-  "Crop insurance schemes",
-  "Subsidy for drip irrigation",
-  "Organic farming support",
+  "schemes.q1",
+  "schemes.q2",
+  "schemes.q3",
+  "schemes.q4",
 ];
 
 export default function SchemeFinder() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([
-    { role: "bot", text: "Hello! I can help you find government schemes for agriculture. What would you like to know?" },
+    { role: "bot", key: "schemes.greeting" },
   ]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -32,39 +34,64 @@ export default function SchemeFinder() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
+  useEffect(() => {
+    setMessages([{ role: "bot", key: "schemes.greeting" }]);
+    setTyping(false);
+  }, [lang]);
+
   if (!isLoggedIn) {
     return (
       <div className="max-w-3xl mx-auto flex flex-col items-center justify-center h-[300px]">
         <div className="text-center">
-          <p className="text-lg font-semibold text-foreground mb-4">Login Required</p>
-          <p className="text-muted-foreground mb-6">Please login to access Scheme Finder</p>
+          <p className="text-lg font-semibold text-foreground mb-4">{t("auth.loginRequired")}</p>
+          <p className="text-muted-foreground mb-6">{t("schemes.loginPrompt")}</p>
           <button
             onClick={() => navigate("/login")}
             className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition"
           >
-            Go to Login
+            {t("auth.goToLogin")}
           </button>
         </div>
       </div>
     );
   }
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     if (!text.trim()) return;
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     setTyping(true);
 
-    setTimeout(() => {
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+      const response = await fetch(`${apiBaseUrl}/api/schemes/chat?lang=${lang}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, lang }),
+      });
+
+      if (response.ok) {
+        const payload = await response.json();
+        const reply = payload?.reply;
+        if (typeof reply === "string" && reply.trim()) {
+          setMessages((prev) => [...prev, { role: "bot", text: reply }]);
+          return;
+        }
+      }
+    } catch {
+      // Fall through to localized offline template.
+    } finally {
       setTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "bot",
-          text: `Here's what I found about "${text}":\n\n✅ PM-KISAN provides ₹6,000/year to eligible farmer families in 3 installments.\n\n📋 Eligibility: All landholding farmer families with cultivable land.\n\n📞 Contact your nearest Agriculture Office or visit pmkisan.gov.in for more details.`,
-        },
-      ]);
-    }, 1500);
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "bot",
+        key: "schemes.botTemplate",
+        params: { query: text },
+      },
+    ]);
   };
 
   return (
@@ -89,7 +116,7 @@ export default function SchemeFinder() {
                   : "glass-card rounded-bl-md text-foreground"
               }`}
             >
-              {msg.text}
+              {msg.text ?? t(msg.key || "", msg.params)}
             </div>
           </motion.div>
         ))}
@@ -111,11 +138,11 @@ export default function SchemeFinder() {
               {quickQuestions.map((q) => (
                 <button
                   key={q}
-                  onClick={() => send(q)}
+                  onClick={() => send(t(q))}
                   className="px-3.5 py-2 rounded-full bg-white/70 backdrop-blur-lg shadow-md text-xs font-medium text-foreground hover:bg-white hover:scale-[1.02] transition-all duration-300 active:scale-[0.97] inline-flex items-center gap-1.5"
                 >
                   <Sparkles className="h-3.5 w-3.5 text-secondary" />
-                  {q}
+                  {t(q)}
                 </button>
               ))}
             </div>

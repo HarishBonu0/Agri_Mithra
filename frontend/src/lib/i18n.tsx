@@ -1,113 +1,46 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { translations, type Lang } from "./translations";
 
-type Lang = "en" | "te";
+type InterpolationValues = Record<string, string | number>;
 
-const translations: Record<string, Record<Lang, string>> = {
-  // Navigation
-  "nav.dashboard": { en: "Dashboard", te: "డాష్‌బోర్డ్" },
-  "nav.assistant": { en: "Crop Assistant", te: "పంట సహాయకుడు" },
-  "nav.schemes": { en: "Scheme Finder", te: "పథకాల శోధన" },
-  "nav.news": { en: "News", te: "వార్తలు" },
-  "search.placeholder": { en: "Search...", te: "శోధించండి..." },
-  
-  // Dashboard
-  "dashboard.welcome": { en: "Welcome back, Farmer", te: "మళ్ళీ స్వాగతం, రైతు" },
-  "dashboard.weather": { en: "Weather", te: "వాతావరణం" },
-  "dashboard.crops": { en: "Your Crops", te: "మీ పంటలు" },
-  "dashboard.no_crops": { en: "No crops added yet", te: "ఇంకా పంటలు జోడించలేదు" },
-  "dashboard.add_crop": { en: "Add Crop", te: "పంట జోడించండి" },
-  "dashboard.quick_actions": { en: "Quick Actions", te: "త్వరిత చర్యలు" },
-  "dashboard.scan_crop": { en: "Scan Crop", te: "పంట స్కాన్" },
-  "dashboard.find_scheme": { en: "Find Scheme", te: "పథకం కనుగొనండి" },
-  "dashboard.view_news": { en: "View News", te: "వార్తలు చూడండి" },
-  
-  // Auth Pages
-  "auth.login_title": { en: "Welcome Back", te: "తిరిగి స్వాగతం" },
-  "auth.login_subtitle": { en: "Login with your mobile number to continue.", te: "కొనసాగించడానికి మీ మొబైల్ నంబర్ ఉపయోగించి లాగిన్ చేయండి." },
-  "auth.signup_title": { en: "Create Account", te: "ఖాతా సృష్టించండి" },
-  "auth.signup_subtitle": { en: "Sign up to access AgriMithra modules.", te: "AgriMithra మాడ్యూల్‌ల యాక్సెస్ చేయడానికి సైన్ అప్ చేయండి." },
-  "auth.forgot_title": { en: "Reset Password", te: "పాస్‌వర్డ్ రీసెట్ చేయండి" },
-  "auth.forgot_subtitle": { en: "Verify your mobile number with OTP and set a new password.", te: "OTP తో మీ మొబైల్ నంబర్ ధృవీకరించండి మరియు కొత్త పాస్‌వర్డ్ సెట్ చేయండి." },
-  
-  // Form Labels
-  "form.name": { en: "Name", te: "పేరు" },
-  "form.name_placeholder": { en: "Enter your full name", te: "మీ పూర్తి పేరు నమోదు చేయండి" },
-  "form.mobile": { en: "Mobile Number", te: "మొబైల్ నంబర్" },
-  "form.mobile_placeholder": { en: "Enter 10-digit mobile", te: "10-అంకెల మొబైల్‌ను నమోదు చేయండి" },
-  "form.password": { en: "Password", te: "పాస్‌వర్డ్" },
-  "form.password_placeholder": { en: "Enter password (min 6 characters)", te: "పాస్‌వర్డ్ నమోదు చేయండి (కనీసం 6 అక్షరాలు)" },
-  "form.confirm_password": { en: "Confirm Password", te: "పాస్‌వర్డ్‌ను నిర్ధారించండి" },
-  "form.confirm_placeholder": { en: "Re-enter password", te: "పాస్‌వర్డ్‌ను పునः నమోదు చేయండి" },
-  "form.otp": { en: "OTP", te: "OTP" },
-  "form.otp_placeholder": { en: "Enter OTP", te: "OTP నమోదు చేయండి" },
-  "form.new_password": { en: "New Password", te: "కొత్త పాస్‌వర్డ్" },
-  "form.new_password_placeholder": { en: "Enter new password", te: "కొత్త పాస్‌వర్డ్ నమోదు చేయండి" },
-  
-  // Error Messages
-  "error.mobile_required": { en: "Mobile number must be exactly 10 digits", te: "మొబైల్ నంబర్ సరిగ్గా 10 అంకెలు ఉండాలి" },
-  "error.name_required": { en: "Name is required", te: "పేరు అవసరమైనది" },
-  "error.password_required": { en: "Password is required", te: "పాస్‌వర్డ్ అవసరమైనది" },
-  "error.password_min": { en: "Password must be at least 6 characters", te: "పాస్‌వర్డ్ కనీసం 6 అక్షరాలు ఉండాలి" },
-  "error.password_mismatch": { en: "Passwords do not match", te: "పాస్‌వర్డ్‌లు సరిపోలడం లేదు" },
-  "error.otp_required": { en: "OTP must be 4 to 6 digits", te: "OTP 4 నుండి 6 అంకెలు ఉండాలి" },
-  
-  // Buttons
-  "btn.login": { en: "Login", te: "లాగిన్" },
-  "btn.signup": { en: "Sign Up", te: "సైన్ అప్" },
-  "btn.reset_password": { en: "Update Password", te: "పాస్‌వర్డ్ నవీకరించండి" },
-  "btn.forgot_password": { en: "Forgot password?", te: "పాస్‌వర్డ్‌ను మరిచిపోయారా?" },
-  "btn.create_account": { en: "Create account", te: "ఖాతా సృష్టించండి" },
-  "btn.back_to_login": { en: "Back to login", te: "లాగిన్‌కు తిరిగి వెళ్లండి" },
-  "btn.already_account": { en: "Already have an account?", te: "ఇప్పటికే ఖాతా ఉందా?" },
-  "btn.send_otp": { en: "Send OTP", te: "OTP పంపండి" },
-  
-  // Assistant/Schemes/News
-  "assistant.title": { en: "Crop Health Assistant", te: "పంట ఆరోగ్య సహాయకుడు" },
-  "assistant.upload": { en: "Upload crop image", te: "పంట చిత్రాన్ని అప్‌లోడ్ చేయండి" },
-  "assistant.drag": { en: "Drag & drop or click to upload", te: "డ్రాగ్ & డ్రాప్ లేదా అప్‌లోడ్ క్లిక్ చేయండి" },
-  "assistant.voice": { en: "Describe with voice", te: "గొంతుతో వివరించండి" },
-  "assistant.analyzing": { en: "Analyzing your crop...", te: "మీ పంటను విశ్లేషిస్తోంది..." },
-  "assistant.disease": { en: "Disease Detected", te: "వ్యాధి గుర్తించబడింది" },
-  "assistant.confidence": { en: "Confidence", te: "నమ్మకం" },
-  "assistant.solution": { en: "Recommended Solution", te: "సిఫార్సు చేసిన పరిష్కారం" },
-  "assistant.risk": { en: "Risk Level", te: "ప్రమాద స్థాయి" },
-  "schemes.title": { en: "Government Scheme Finder", te: "ప్రభుత్వ పథకాల శోధకం" },
-  "schemes.ask": { en: "Ask about any government scheme...", te: "ఏదైనా ప్రభుత్వ పథకం గురించి అడగండి..." },
-  "schemes.quick": { en: "Quick Questions", te: "త్వరిత ప్రశ్నలు" },
-  "schemes.login_prompt": { en: "Please login to access Scheme Finder", te: "స్కీమ్ ఫైండర్ యాక్సెస్ చేయడానికి దయచేసి లాగిన్ చేయండి" },
-  "news.title": { en: "Agricultural News", te: "వ్యవసాయ వార్తలు" },
-  "news.all": { en: "All", te: "అన్ని" },
-  "news.crops": { en: "Crops", te: "పంటలు" },
-  "news.market": { en: "Market", te: "మార్కెట్" },
-  "news.policy": { en: "Policy", te: "విధానం" },
-  "news.technology": { en: "Technology", te: "సాంకేతికత" },
-  "news.read_more": { en: "Read more", te: "మరింత చదవండి" },
-  "news.login_prompt": { en: "Please login to access News", te: "వార్తలు యాక్సెస్ చేయడానికి దయచేసి లాగిన్ చేయండి" },
-  "weather.sunny": { en: "Sunny", te: "ఎండ" },
-  "weather.recommendation": { en: "Good day for field work", te: "పొలం పనికి మంచి రోజు" },
-  
-  // Profile Dropdown
-  "profile.name": { en: "Name", te: "పేరు" },
-  "profile.mobile": { en: "Mobile", te: "మొబైల్" },
-  "profile.logout": { en: "Logout", te: "లాగిన్ నుండి బయటపడండి" },
-  
-  // Crop Assistant
-  "assistant.no_image": { en: "Please upload a crop image", te: "దయచేసి పంట ఇమేజ్ అప్‌లోడ్ చేయండి" },
-  "assistant.upload_prompt": { en: "Click or drag to upload an image", te: "ఇమేజ్ అప్‌లోడ్ చేయడానికి క్లిక్ లేదా డ్రాగ్ చేయండి" },
-  "assistant.analyze": { en: "Analyze Crop", te: "పంటను విశ్లేషించండి" },
-  "assistant.scan_another": { en: "Scan Another Crop", te: "మరొక పంటను స్కాన్ చేయండి" },
+const getByPath = (obj: unknown, path: string): unknown => {
+  return path.split(".").reduce<unknown>((acc, part) => {
+    if (acc && typeof acc === "object" && part in (acc as Record<string, unknown>)) {
+      return (acc as Record<string, unknown>)[part];
+    }
+    return undefined;
+  }, obj);
+};
+
+const toCamel = (value: string): string => value.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+
+const normalizeLegacyKey = (key: string): string => {
+  return key
+    .split(".")
+    .map((part) => toCamel(part))
+    .join(".");
+};
+
+const interpolate = (template: string, values?: InterpolationValues): string => {
+  if (!values) return template;
+  return template.replace(/\{(\w+)\}/g, (_, key) => {
+    const value = values[key];
+    return value === undefined ? `{${key}}` : String(value);
+  });
 };
 
 interface I18nContextType {
   lang: Lang;
   setLang: (l: Lang) => void;
-  t: (key: string) => string;
+  t: (key: string, values?: InterpolationValues) => string;
+  dictionary: (typeof translations)[Lang];
 }
 
 const I18nContext = createContext<I18nContextType>({
   lang: "en",
   setLang: () => {},
   t: (key) => key,
+  dictionary: translations.en,
 });
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -126,10 +59,16 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("agrimitra-lang", newLang);
   };
 
-  const t = useCallback((key: string) => translations[key]?.[lang] || key, [lang]);
+  const t = useCallback((key: string, values?: InterpolationValues) => {
+    const translated = getByPath(translations[lang], key) ?? getByPath(translations[lang], normalizeLegacyKey(key));
+    if (typeof translated !== "string") {
+      return key;
+    }
+    return interpolate(translated, values);
+  }, [lang]);
 
   return (
-    <I18nContext.Provider value={{ lang, setLang: handleSetLang, t }}>
+    <I18nContext.Provider value={{ lang, setLang: handleSetLang, t, dictionary: translations[lang] }}>
       {children}
     </I18nContext.Provider>
   );
