@@ -1,86 +1,86 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 interface User {
+  id: string;
   name: string;
+  phone: string;
   mobile: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoggedIn: boolean;
-  signup: (name: string, mobile: string, password: string) => void;
-  login: (mobile: string, password: string) => boolean;
+  token: string | null;
+  signup: (name: string, mobile: string, password: string) => Promise<void>;
+  login: (mobile: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoggedIn: false,
-  signup: () => {},
-  login: () => false,
+  token: null,
+  signup: async () => {},
+  login: async () => {},
   logout: () => {},
 });
 
+const TOKEN_KEY = "agrimitra-token";
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
-  // Load user from localStorage on mount
+  const normalizeUser = (raw: { id: string; name: string; phone: string }): User => ({
+    id: raw.id,
+    name: raw.name,
+    phone: raw.phone,
+    mobile: raw.phone,
+  });
+
+  // Load token and resolve session from backend
   useEffect(() => {
-    const savedUser = localStorage.getItem("agrimitra-user");
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error("Failed to parse saved user:", e);
-      }
-    }
+    const savedToken = localStorage.getItem(TOKEN_KEY);
+    if (!savedToken) return;
+
+    setToken(savedToken);
+    api.auth
+      .me(savedToken)
+      .then((res) => setUser(normalizeUser(res.data.user)))
+      .catch(() => {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken(null);
+        setUser(null);
+      });
   }, []);
 
-  const signup = (name: string, mobile: string, password: string) => {
-    // Store user in localStorage and set as logged in
-    const newUser = { name, mobile };
-    localStorage.setItem("agrimitra-user", JSON.stringify(newUser));
-    localStorage.setItem(`agrimitra-pwd-${mobile}`, password);
-    setUser(newUser);
+  const signup = async (name: string, mobile: string, password: string) => {
+    const response = await api.auth.signup({
+      name,
+      phone: mobile,
+      password,
+    });
+
+    localStorage.setItem(TOKEN_KEY, response.data.token);
+    setToken(response.data.token);
+    setUser(normalizeUser(response.data.user));
   };
 
-  const login = (mobile: string, password: string): boolean => {
-    // Check stored credentials
-    const storedPassword = localStorage.getItem(`agrimitra-pwd-${mobile}`);
-    if (storedPassword === password) {
-      const users = Object.keys(localStorage)
-        .filter((k) => k.startsWith("agrimitra-pwd-"))
-        .map((k) => {
-          const m = k.replace("agrimitra-pwd-", "");
-          return { mobile: m };
-        });
+  const login = async (mobile: string, password: string) => {
+    const response = await api.auth.login({
+      phone: mobile,
+      password,
+    });
 
-      const foundUser = users.find((u) => u.mobile === mobile);
-      if (foundUser) {
-        const savedUser = localStorage.getItem("agrimitra-user");
-        let current = foundUser;
-        if (savedUser) {
-          try {
-            current = JSON.parse(savedUser);
-          } catch (e) {
-            console.error("Failed to parse saved user:", e);
-          }
-        }
-        // For demo: use name if exists, else use mobile
-        const userToSet: User = {
-          name: (current as any).name || "Farmer",
-          mobile,
-        };
-        localStorage.setItem("agrimitra-user", JSON.stringify(userToSet));
-        setUser(userToSet);
-        return true;
-      }
-    }
-    return false;
+    localStorage.setItem(TOKEN_KEY, response.data.token);
+    setToken(response.data.token);
+    setUser(normalizeUser(response.data.user));
   };
 
   const logout = () => {
-    localStorage.removeItem("agrimitra-user");
+    localStorage.removeItem(TOKEN_KEY);
+    setToken(null);
     setUser(null);
   };
 
@@ -88,7 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         user,
-        isLoggedIn: !!user,
+        isLoggedIn: !!user && !!token,
+        token,
         signup,
         login,
         logout,

@@ -3,97 +3,90 @@ import analyzeWithRoboflow from '../services/roboflowService.js';
 import generateCropAdvisory from '../services/geminiService.js';
 import { cleanupFile } from '../middleware/uploadMiddleware.js';
 
-// POST /api/crop/analyze
+// ─── POST /api/crop/analyze ───────────────────────────────────────────────────
+
 export const analyzeCrop = async (req, res) => {
   const filePath = req.file?.path;
 
   try {
+    // Guard: no file uploaded
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Image file is required',
-        requestId: req.requestId,
-      });
+      return res.status(400).json({ success: false, message: 'Image file is required' });
     }
 
-    console.log(`[Crop] Analyzing: ${req.file.filename} for user ${req.user.userId}`);
-
-    // Step 1: Roboflow detection (graceful fallback)
-    let diseaseLabel = 'Unknown';
-    let confidence = 0;
-    let roboflowRaw = {};
-
+    // Step 1: Roboflow — detect disease
+    let disease = 'Leaf infection';
     try {
-      const result = await analyzeWithRoboflow(req.file.path);
-      diseaseLabel = result.diseaseLabel;
-      confidence = result.confidence;
-      roboflowRaw = result.raw;
-    } catch (rfErr) {
-      console.error('[Roboflow] Error:', rfErr.message);
+      const result = await analyzeWithRoboflow(filePath);
+      disease = result.disease;
+    } catch (err) {
+      console.error('[Roboflow] Detection failed:', err.message);
+      // continue with fallback disease label
     }
 
-    // Step 2: Gemini advisory (always returns, never throws)
-    const advisory = await generateCropAdvisory({ diseaseLabel, confidence });
+    // Step 2: Gemini — generate advisory
+    const advisory = await generateCropAdvisory(disease);
 
-    // Step 3: Persist to DB
-    const analysis = await CropAnalysis.create({
-      user: req.user.userId,
-      imagePath: req.file.filename,
-      diseaseLabel,
-      confidence,
-      roboflowRaw,
+    // Step 3: Build the final response payload
+    const data = {
+      disease,
       explanation: advisory.explanation,
       solution: advisory.solution,
       prevention: advisory.prevention,
-      riskLevel: advisory.riskLevel,
-      teluguTranslation: advisory.teluguTranslation,
-    });
+      risk: advisory.risk,
+    };
 
-    return res.status(201).json({
-      success: true,
-      message: 'Analysis complete',
-      requestId: req.requestId,
-      data: {
-        id: analysis._id,
-        diseaseLabel: analysis.diseaseLabel,
-        confidence: analysis.confidence,
-        imagePath: analysis.imagePath,
-        explanation: analysis.explanation,
-        solution: analysis.solution,
-        prevention: analysis.prevention,
-        riskLevel: analysis.riskLevel,
-        teluguTranslation: analysis.teluguTranslation,
-        createdAt: analysis.createdAt,
-      },
-    });
+    // Respond immediately — do not block on DB
+    res.status(200).json({ success: true, data });
+
+    // Step 4: Persist to DB asynchronously (failure does NOT affect API response)
+    CropAnalysis.create({
+      user: req.user.userId,
+      imagePath: req.file.filename,
+      diseaseLabel: disease,
+      explanation: advisory.explanation,
+      solution: advisory.solution,
+      prevention: advisory.prevention,
+      riskLevel: advisory.risk,
+    }).catch((err) => console.error('[DB] Save failed (non-fatal):', err.message));
+
   } catch (err) {
-    // Cleanup uploaded file if DB save or something else failed
     cleanupFile(filePath);
-    console.error('[Crop] analyzeCrop error:', err.message);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error during analysis',
-      requestId: req.requestId,
-    });
+    console.error('[Analyze] Fatal error:', err.message);
+    // Only send error if headers not already sent
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, message: 'Server error during analysis' });
+    }
   }
 };
 
-// GET /api/crop/history
+// ─── GET /api/crop/history ────────────────────────────────────────────────────
+
 export const getCropHistory = async (req, res) => {
   try {
-    const analyses = await CropAnalysis.find({ user: req.user.userId })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .select('-roboflowRaw -__v');
+    const rawLimit = parseInt(req.query.limit, 10);
+    const rawPage = parseInt(req.query.page, 10);
+
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 20;
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+    const skip = (page - 1) * limit;
+
+    const [analyses, total] = await Promise.all([
+      CropAnalysis.find({ user: req.user.userId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('diseaseLabel explanation solution prevention riskLevel imagePath createdAt'),
+      CropAnalysis.countDocuments({ user: req.user.userId }),
+    ]);
 
     return res.json({
       success: true,
-      message: 'History fetched',
-      requestId: req.requestId,
+      pagination: { total, page, limit, hasNext: skip + analyses.length < total },
       data: analyses,
     });
   } catch (err) {
-    console.error('[Crop] getCropHistory error:', err.message);
-    return res.status(500).json({ success: false, message: 'Server error', requestId: req.requestId });
+    console.error('[History] Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 };

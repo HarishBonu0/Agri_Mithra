@@ -1,36 +1,33 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, CornerDownRight } from "lucide-react";
+import { useState } from "react";
+import { Send, Sparkles, Landmark } from "lucide-react";
 import { motion } from "framer-motion";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
+import { api } from "@/lib/api";
 
-interface Message {
-  role: "user" | "bot";
-  text: string;
-}
-
-const quickQuestions = [
-  "PM Kisan eligibility",
-  "Crop insurance schemes",
-  "Subsidy for drip irrigation",
-  "Organic farming support",
-];
+type Scheme = {
+  name?: string;
+  description?: string;
+  eligibility?: string;
+  benefit?: string;
+  applyAt?: string;
+};
 
 export default function SchemeFinder() {
   const { t } = useI18n();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, token } = useAuth();
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "bot", text: "Hello! I can help you find government schemes for agriculture. What would you like to know?" },
-  ]);
-  const [input, setInput] = useState("");
-  const [typing, setTyping] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, typing]);
+  const [form, setForm] = useState({
+    land: "",
+    crop: "",
+    income: "",
+    state: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [schemes, setSchemes] = useState<Scheme[]>([]);
 
   if (!isLoggedIn) {
     return (
@@ -49,100 +46,125 @@ export default function SchemeFinder() {
     );
   }
 
-  const send = (text: string) => {
-    if (!text.trim()) return;
-    setMessages((prev) => [...prev, { role: "user", text }]);
-    setInput("");
-    setTyping(true);
+  const submit = async () => {
+    if (!token) return;
 
-    setTimeout(() => {
-      setTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "bot",
-          text: `Here's what I found about "${text}":\n\n✅ PM-KISAN provides ₹6,000/year to eligible farmer families in 3 installments.\n\n📋 Eligibility: All landholding farmer families with cultivable land.\n\n📞 Contact your nearest Agriculture Office or visit pmkisan.gov.in for more details.`,
-        },
-      ]);
-    }, 1500);
+    if (!form.land || !form.crop || !form.income) {
+      setError("Land, crop, and income are required");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await api.schemes.find(token, {
+        land: Number(form.land),
+        crop: form.crop,
+        income: Number(form.income),
+        state: form.state || undefined,
+      });
+      setSchemes(response.data || []);
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch schemes");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)]">
-      <div className="mb-5">
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div>
         <h1 className="font-heading text-2xl font-bold text-foreground">{t("schemes.title")}</h1>
+        <p className="text-sm text-muted-foreground mt-1">Find government schemes based on your farm profile.</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-3 pb-4">
-        {messages.map((msg, i) => (
+      <div className="glass-card p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs text-muted-foreground">Land (acres)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.1"
+            value={form.land}
+            onChange={(e) => setForm((prev) => ({ ...prev, land: e.target.value }))}
+            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none"
+            placeholder="2"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Crop</label>
+          <input
+            type="text"
+            value={form.crop}
+            onChange={(e) => setForm((prev) => ({ ...prev, crop: e.target.value }))}
+            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none"
+            placeholder="paddy"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Annual Income (INR)</label>
+          <input
+            type="number"
+            min="0"
+            value={form.income}
+            onChange={(e) => setForm((prev) => ({ ...prev, income: e.target.value }))}
+            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none"
+            placeholder="120000"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">State (optional)</label>
+          <input
+            type="text"
+            value={form.state}
+            onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))}
+            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none"
+            placeholder="Telangana"
+          />
+        </div>
+
+        <button
+          onClick={submit}
+          disabled={loading}
+          className="md:col-span-2 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-5 py-3.5 text-sm font-semibold text-primary-foreground hover:shadow-lg hover:scale-[1.01] transition disabled:opacity-60"
+        >
+          <Send className="h-4 w-4" />
+          {loading ? "Finding schemes..." : "Find Schemes"}
+        </button>
+
+        {error && <p className="md:col-span-2 text-sm text-destructive">{error}</p>}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {schemes.map((scheme, i) => (
           <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 6 }}
+            key={`${scheme.name || "scheme"}-${i}`}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            transition={{ delay: i * 0.05, duration: 0.2 }}
+            className="glass-card p-5 border border-white/40"
           >
-            <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm whitespace-pre-line shadow-md ${
-                msg.role === "user"
-                  ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-br-md hover:shadow-lg transition"
-                  : "glass-card rounded-bl-md text-foreground"
-              }`}
-            >
-              {msg.text}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Landmark className="h-4 w-4 text-primary" />
+              </div>
+              <p className="font-semibold text-foreground">{scheme.name || "Scheme"}</p>
             </div>
+            <p className="text-sm text-muted-foreground">{scheme.description}</p>
+            {scheme.eligibility && <p className="text-sm mt-2"><span className="font-semibold">Eligibility:</span> {scheme.eligibility}</p>}
+            {scheme.benefit && <p className="text-sm mt-2"><span className="font-semibold">Benefit:</span> {scheme.benefit}</p>}
+            {scheme.applyAt && <p className="text-sm mt-2"><span className="font-semibold">Apply at:</span> {scheme.applyAt}</p>}
           </motion.div>
         ))}
-
-        {typing && (
-          <div className="flex justify-start">
-            <div className="glass-card rounded-2xl rounded-bl-md px-4 py-3 flex gap-1.5 shadow-md">
-              <span className="typing-dot" />
-              <span className="typing-dot" />
-              <span className="typing-dot" />
-            </div>
-          </div>
-        )}
-
-        {messages.length === 1 && !typing && (
-          <div className="pt-2">
-            <p className="text-xs text-muted-foreground font-medium mb-2">{t("schemes.quick")}</p>
-            <div className="flex flex-wrap gap-2">
-              {quickQuestions.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => send(q)}
-                  className="px-3.5 py-2 rounded-full bg-white/70 backdrop-blur-lg shadow-md text-xs font-medium text-foreground hover:bg-white hover:scale-[1.02] transition-all duration-300 active:scale-[0.97] inline-flex items-center gap-1.5"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-secondary" />
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div ref={bottomRef} />
       </div>
 
-      <div className="flex items-center gap-2 bg-white/70 backdrop-blur-lg shadow-md rounded-2xl border border-white/50 p-2.5">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send(input)}
-          placeholder={t("schemes.ask")}
-          className="flex-1 bg-transparent text-sm outline-none px-2 text-foreground placeholder:text-muted-foreground"
-        />
-        <button
-          onClick={() => send(input)}
-          disabled={!input.trim()}
-          className="h-10 rounded-xl px-3 bg-gradient-to-r from-primary to-secondary text-primary-foreground flex items-center justify-center gap-1.5 hover:shadow-lg hover:scale-[1.02] transition duration-300 disabled:opacity-40 active:scale-[0.95]"
-        >
-          <CornerDownRight className="h-3.5 w-3.5" />
-          <Send className="h-4 w-4" />
-        </button>
-      </div>
+      {!loading && schemes.length === 0 && (
+        <div className="glass-card p-8 text-center">
+          <Sparkles className="h-6 w-6 text-primary mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Enter farm details to get personalized scheme suggestions.</p>
+        </div>
+      )}
     </div>
   );
 }

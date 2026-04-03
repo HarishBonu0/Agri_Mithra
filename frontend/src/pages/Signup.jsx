@@ -48,16 +48,22 @@ export default function Signup() {
     return Object.values(nextErrors).every((value) => !value);
   };
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
     if (!validate()) return;
 
     setIsSubmitting(true);
-    // Simulate network delay + save + auto-login
-    setTimeout(() => {
-      signup(form.name, form.mobile, form.password);
+    try {
+      await signup(form.name, form.mobile, form.password);
       navigate("/dashboard");
-    }, 300);
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        mobile: error.message || "Signup failed",
+      }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
