@@ -19,12 +19,7 @@ export default function SchemeFinder() {
   const { isLoggedIn, token } = useAuth();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    land: "",
-    crop: "",
-    income: "",
-    state: "",
-  });
+  const [form, setForm] = useState({ land: "", crop: "", income: "", state: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [schemes, setSchemes] = useState<Scheme[]>([]);
@@ -35,12 +30,7 @@ export default function SchemeFinder() {
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground mb-4">Login Required</p>
           <p className="text-muted-foreground mb-6">Please login to access Scheme Finder</p>
-          <button
-            onClick={() => navigate("/login")}
-            className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition"
-          >
-            Go to Login
-          </button>
+          <button onClick={() => navigate("/login")} className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition">Go to Login</button>
         </div>
       </div>
     );
@@ -48,7 +38,6 @@ export default function SchemeFinder() {
 
   const submit = async () => {
     if (!token) return;
-
     if (!form.land || !form.crop || !form.income) {
       setError("Land, crop, and income are required");
       return;
@@ -56,7 +45,6 @@ export default function SchemeFinder() {
 
     setLoading(true);
     setError("");
-
     try {
       const response = await api.schemes.find(token, {
         land: Number(form.land),
@@ -82,53 +70,22 @@ export default function SchemeFinder() {
       <div className="glass-card p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-xs text-muted-foreground">Land (acres)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.1"
-            value={form.land}
-            onChange={(e) => setForm((prev) => ({ ...prev, land: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none"
-            placeholder="2"
-          />
+          <input type="number" min="0" step="0.1" value={form.land} onChange={(e) => setForm((prev) => ({ ...prev, land: e.target.value }))} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none" placeholder="2" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Crop</label>
-          <input
-            type="text"
-            value={form.crop}
-            onChange={(e) => setForm((prev) => ({ ...prev, crop: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none"
-            placeholder="paddy"
-          />
+          <input type="text" value={form.crop} onChange={(e) => setForm((prev) => ({ ...prev, crop: e.target.value }))} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none" placeholder="paddy" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Annual Income (INR)</label>
-          <input
-            type="number"
-            min="0"
-            value={form.income}
-            onChange={(e) => setForm((prev) => ({ ...prev, income: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none"
-            placeholder="120000"
-          />
+          <input type="number" min="0" value={form.income} onChange={(e) => setForm((prev) => ({ ...prev, income: e.target.value }))} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none" placeholder="120000" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">State (optional)</label>
-          <input
-            type="text"
-            value={form.state}
-            onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none"
-            placeholder="Telangana"
-          />
+          <input type="text" value={form.state} onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none" placeholder="Telangana" />
         </div>
 
-        <button
-          onClick={submit}
-          disabled={loading}
-          className="md:col-span-2 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-5 py-3.5 text-sm font-semibold text-primary-foreground hover:shadow-lg hover:scale-[1.01] transition disabled:opacity-60"
-        >
+        <button onClick={submit} disabled={loading} className="md:col-span-2 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-5 py-3.5 text-sm font-semibold text-primary-foreground hover:shadow-lg hover:scale-[1.01] transition disabled:opacity-60">
           <Send className="h-4 w-4" />
           {loading ? "Finding schemes..." : "Find Schemes"}
         </button>
@@ -138,13 +95,7 @@ export default function SchemeFinder() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {schemes.map((scheme, i) => (
-          <motion.div
-            key={`${scheme.name || "scheme"}-${i}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05, duration: 0.2 }}
-            className="glass-card p-5 border border-white/40"
-          >
+          <motion.div key={`${scheme.name || "scheme"}-${i}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05, duration: 0.2 }} className="glass-card p-5 border border-white/40">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Landmark className="h-4 w-4 text-primary" />

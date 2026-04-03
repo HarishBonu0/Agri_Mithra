@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Upload, Mic, Leaf, AlertTriangle, CheckCircle2, ShieldAlert, RotateCcw } from "lucide-react";
+import { Upload, Mic, Leaf, AlertTriangle, CheckCircle2, RotateCcw, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
@@ -10,12 +10,22 @@ type Phase = "upload" | "analyzing" | "result";
 
 type AnalysisResult = {
   diseaseLabel: string;
-  confidence: number;
-  explanation: string;
-  solution: string;
-  prevention: string;
-  riskLevel: string;
-  teluguTranslation: string;
+  whatIsHappening: string;
+  whyItHappens: string;
+  doThisNow: string[];
+  next7DaysPlan: string[];
+  preventNextTime: string[];
+  saveYourYield: string[];
+  warningSigns: string[];
+  pesticideOptions: Array<{
+    name: string;
+    useWhen?: string;
+    dosage?: string;
+    timing?: string;
+    safety?: string;
+  }>;
+  localLanguageAdvice: string;
+  importantNote: string;
 };
 
 export default function CropAssistant() {
@@ -82,12 +92,16 @@ export default function CropAssistant() {
       const payload: any = response.data || {};
       setResult({
         diseaseLabel: payload.diseaseLabel || payload.disease || "Unknown",
-        confidence: payload.confidence || 0,
-        explanation: payload.explanation || "",
-        solution: payload.solution || "",
-        prevention: payload.prevention || "",
-        riskLevel: payload.riskLevel || payload.risk || "Unknown",
-        teluguTranslation: payload.teluguTranslation || "",
+        whatIsHappening: payload.whatIsHappening || payload.explanation || "",
+        whyItHappens: payload.whyItHappens || "",
+        doThisNow: payload.doThisNow || [],
+        next7DaysPlan: payload.next7DaysPlan || [],
+        preventNextTime: payload.preventNextTime || [],
+        saveYourYield: payload.saveYourYield || [],
+        warningSigns: payload.warningSigns || [],
+        pesticideOptions: payload.pesticideOptions || [],
+        localLanguageAdvice: payload.localLanguageAdvice || payload.teluguTranslation || "",
+        importantNote: payload.importantNote || "",
       });
       setPhase("result");
     } catch (err: any) {
@@ -200,40 +214,111 @@ export default function CropAssistant() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="glass-card p-5">
-                <p className="text-xs text-muted-foreground font-medium">{t("assistant.confidence")}</p>
-                <p className="text-2xl font-heading font-bold text-primary mt-1">{result.confidence}%</p>
-              </div>
-              <div className="glass-card p-5">
-                <p className="text-xs text-muted-foreground font-medium">{t("assistant.risk")}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <ShieldAlert className="h-5 w-5 text-destructive" />
-                  <span className="text-lg font-heading font-bold text-destructive">{result.riskLevel}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="glass-card p-6 space-y-3">
+            <div className="glass-card p-6 space-y-4">
               <div>
-                <p className="text-sm font-semibold text-foreground">Explanation</p>
-                <p className="text-sm text-muted-foreground mt-1">{result.explanation || "Not available"}</p>
+                <p className="text-sm font-semibold text-foreground">What is happening</p>
+                <p className="text-sm text-muted-foreground mt-1">{result.whatIsHappening || "Not available"}</p>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Solution</p>
-                <p className="text-sm text-muted-foreground mt-1">{result.solution || "Not available"}</p>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Prevention</p>
-                <p className="text-sm text-muted-foreground mt-1">{result.prevention || "Not available"}</p>
-              </div>
-              {result.teluguTranslation && (
+              {result.whyItHappens && (
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Telugu</p>
-                  <p className="text-sm text-muted-foreground mt-1">{result.teluguTranslation}</p>
+                  <p className="text-sm font-semibold text-foreground">Why this happens</p>
+                  <p className="text-sm text-muted-foreground mt-1">{result.whyItHappens}</p>
                 </div>
               )}
             </div>
+
+            <div className="glass-card p-6">
+              <p className="text-sm font-semibold text-foreground mb-3">Do this now (today)</p>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                {(result.doThisNow || []).map((step, idx) => (
+                  <li key={`now-${idx}`} className="flex gap-2">
+                    <span className="text-primary font-bold">{idx + 1}.</span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="glass-card p-6">
+              <p className="text-sm font-semibold text-foreground mb-3">Plan for next 7 days</p>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                {(result.next7DaysPlan || []).map((step, idx) => (
+                  <li key={`week-${idx}`} className="flex gap-2">
+                    <span className="text-primary font-bold">{idx + 1}.</span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="glass-card p-6">
+              <p className="text-sm font-semibold text-foreground mb-3">How to prevent again</p>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                {(result.preventNextTime || []).map((tip, idx) => (
+                  <li key={`prev-${idx}`} className="flex gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary mt-0.5" />
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="glass-card p-6">
+              <p className="text-sm font-semibold text-foreground mb-3">How to reduce crop loss now</p>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                {(result.saveYourYield || []).map((tip, idx) => (
+                  <li key={`loss-${idx}`} className="flex gap-2">
+                    <Shield className="h-4 w-4 text-secondary mt-0.5" />
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {result.pesticideOptions?.length > 0 && (
+              <div className="glass-card p-6">
+                <p className="text-sm font-semibold text-foreground mb-3">Suggested pesticide options</p>
+                <div className="space-y-3">
+                  {result.pesticideOptions.map((p, idx) => (
+                    <div key={`pest-${idx}`} className="rounded-xl bg-white/60 p-3 border border-white/50">
+                      <p className="text-sm font-semibold text-foreground">{p.name}</p>
+                      {p.useWhen && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">When:</span> {p.useWhen}</p>}
+                      {p.dosage && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Dose:</span> {p.dosage}</p>}
+                      {p.timing && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Timing:</span> {p.timing}</p>}
+                      {p.safety && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Safety:</span> {p.safety}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {result.warningSigns?.length > 0 && (
+              <div className="glass-card p-6">
+                <p className="text-sm font-semibold text-foreground mb-3">Warning signs to watch</p>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  {result.warningSigns.map((w, idx) => (
+                    <li key={`warn-${idx}`} className="flex gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result.localLanguageAdvice && (
+              <div className="glass-card p-6">
+                <p className="text-sm font-semibold text-foreground">Local language summary</p>
+                <p className="text-sm text-muted-foreground mt-1">{result.localLanguageAdvice}</p>
+              </div>
+            )}
+
+            {result.importantNote && (
+              <div className="glass-card p-6 border border-amber-300/40 bg-amber-50/40">
+                <p className="text-sm font-semibold text-foreground">Important note</p>
+                <p className="text-sm text-muted-foreground mt-1">{result.importantNote}</p>
+              </div>
+            )}
 
             <button
               onClick={handleReset}

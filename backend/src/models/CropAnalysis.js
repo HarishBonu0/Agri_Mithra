@@ -8,6 +8,17 @@ const topPredictionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const pesticideOptionSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    useWhen: { type: String, default: '' },
+    dosage: { type: String, default: '' },
+    timing: { type: String, default: '' },
+    safety: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
 const cropAnalysisSchema = new mongoose.Schema(
   {
     user: {
@@ -43,11 +54,17 @@ const cropAnalysisSchema = new mongoose.Schema(
     explanation: { type: String, default: '' },
 
     /** Rich immediate actions (new) */
-    immediateActions: { type: String, default: '' },
+    immediateActions: { type: [String], default: [] },
     /** 7-day action plan (new) */
-    weeklyPlan: { type: String, default: '' },
+    weeklyPlan: { type: [String], default: [] },
     /** Prevention tips array (new) */
     preventionChecklist: { type: [String], default: [] },
+    /** Yield-loss reduction actions */
+    lossReductionPlan: { type: [String], default: [] },
+    /** Red-flag warning signs */
+    warningSigns: { type: [String], default: [] },
+    /** Suggested pesticide options */
+    pesticideOptions: { type: [pesticideOptionSchema], default: [] },
 
     /** Backward-compat alias for immediateActions */
     solution: { type: String, default: '' },

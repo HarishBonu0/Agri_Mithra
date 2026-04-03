@@ -7,6 +7,7 @@ import { cleanupFile } from '../middleware/uploadMiddleware.js';
 
 export const analyzeCrop = async (req, res) => {
   const filePath = req.file?.path;
+  const startTime = Date.now();
 
   try {
     // Guard: no file uploaded
@@ -25,15 +26,26 @@ export const analyzeCrop = async (req, res) => {
     }
 
     // Step 2: Gemini — generate advisory
-    const advisory = await generateCropAdvisory(disease);
+    const advisory = await generateCropAdvisory({ diseaseLabel: disease });
 
     // Step 3: Build the final response payload
     const data = {
       disease,
-      explanation: advisory.explanation,
-      solution: advisory.solution,
-      prevention: advisory.prevention,
-      risk: advisory.risk,
+      whatIsHappening: advisory.whatIsHappening,
+      whyItHappens: advisory.whyItHappens,
+      doThisNow: advisory.immediateActions,
+      next7DaysPlan: advisory.weeklyPlan,
+      preventNextTime: advisory.preventionChecklist,
+      saveYourYield: advisory.lossReductionPlan,
+      pesticideOptions: advisory.pesticideOptions,
+      warningSigns: advisory.warningSigns,
+      localLanguageAdvice: advisory.teluguSummary,
+      importantNote: advisory.disclaimer,
+
+      // Backward-compatible fields for existing clients
+      explanation: advisory.whatIsHappening,
+      solution: advisory.immediateActions?.join('\n') || '',
+      prevention: advisory.preventionChecklist?.join(', ') || '',
     };
 
     // Respond immediately — do not block on DB
@@ -44,11 +56,21 @@ export const analyzeCrop = async (req, res) => {
       user: req.user.userId,
       imagePath: req.file.filename,
       diseaseLabel: disease,
-      explanation: advisory.explanation,
-      solution: advisory.solution,
-      prevention: advisory.prevention,
-      riskLevel: advisory.risk,
+      explanation: advisory.whatIsHappening,
+      immediateActions: advisory.immediateActions,
+      weeklyPlan: advisory.weeklyPlan,
+      preventionChecklist: advisory.preventionChecklist,
+      solution: advisory.immediateActions?.join('\n') || '',
+      prevention: advisory.preventionChecklist?.join(', ') || '',
+      riskLevel: 'Unknown',
+      teluguTranslation: advisory.teluguSummary,
+      disclaimer: advisory.disclaimer,
+      lossReductionPlan: advisory.lossReductionPlan,
+      warningSigns: advisory.warningSigns,
+      pesticideOptions: advisory.pesticideOptions,
     }).catch((err) => console.error('[DB] Save failed (non-fatal):', err.message));
+
+    console.log(`[Analyze] Completed in ${Date.now() - startTime}ms for user=${req.user.userId}`);
 
   } catch (err) {
     cleanupFile(filePath);
@@ -76,7 +98,7 @@ export const getCropHistory = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select('diseaseLabel explanation solution prevention riskLevel imagePath createdAt'),
+        .select('diseaseLabel explanation immediateActions weeklyPlan preventionChecklist lossReductionPlan warningSigns pesticideOptions teluguTranslation disclaimer imagePath createdAt'),
       CropAnalysis.countDocuments({ user: req.user.userId }),
     ]);
 
