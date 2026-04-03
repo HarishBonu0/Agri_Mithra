@@ -10,6 +10,9 @@ type Phase = "upload" | "analyzing" | "result";
 
 type AnalysisResult = {
   diseaseLabel: string;
+  diagnosisStatus?: "confirmed" | "low_confidence" | "unknown";
+  confidence?: number;
+  topPredictions?: Array<{ label: string; confidence: number }>;
   whatIsHappening: string;
   whyItHappens: string;
   doThisNow: string[];
@@ -24,8 +27,6 @@ type AnalysisResult = {
     timing?: string;
     safety?: string;
   }>;
-  localLanguageAdvice: string;
-  importantNote: string;
 };
 
 export default function CropAssistant() {
@@ -45,13 +46,13 @@ export default function CropAssistant() {
     return (
       <div className="max-w-2xl mx-auto flex flex-col items-center justify-center h-[200px]">
         <div className="text-center">
-          <p className="text-lg font-semibold text-foreground mb-4">Login Required</p>
-          <p className="text-muted-foreground mb-6">Please login to access Crop Assistant</p>
+          <p className="text-lg font-semibold text-foreground mb-4">{t("assistant.login_required")}</p>
+          <p className="text-muted-foreground mb-6">{t("assistant.login_prompt")}</p>
           <button
             onClick={() => navigate("/login")}
             className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition"
           >
-            Go to Login
+            {t("assistant.go_login")}
           </button>
         </div>
       </div>
@@ -63,13 +64,13 @@ export default function CropAssistant() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setError("Please upload an image file");
+      setError(t("assistant.invalid_file"));
       setSelectedFile(null);
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setError("Image must be less than 5MB");
+      setError(t("assistant.file_too_large"));
       setSelectedFile(null);
       return;
     }
@@ -91,7 +92,10 @@ export default function CropAssistant() {
       const response = await api.crop.analyze(token, selectedFile);
       const payload: any = response.data || {};
       setResult({
-        diseaseLabel: payload.diseaseLabel || payload.disease || "Unknown",
+        diseaseLabel: payload.disease || payload.diseaseLabel || t("assistant.unknown"),
+        diagnosisStatus: payload.diagnosisStatus,
+        confidence: typeof payload.confidence === "number" ? payload.confidence : undefined,
+        topPredictions: Array.isArray(payload.topPredictions) ? payload.topPredictions : [],
         whatIsHappening: payload.whatIsHappening || payload.explanation || "",
         whyItHappens: payload.whyItHappens || "",
         doThisNow: payload.doThisNow || [],
@@ -100,12 +104,10 @@ export default function CropAssistant() {
         saveYourYield: payload.saveYourYield || [],
         warningSigns: payload.warningSigns || [],
         pesticideOptions: payload.pesticideOptions || [],
-        localLanguageAdvice: payload.localLanguageAdvice || payload.teluguTranslation || "",
-        importantNote: payload.importantNote || "",
       });
       setPhase("result");
     } catch (err: any) {
-      setError(err.message || "Failed to analyze crop image");
+      setError(err.message || t("assistant.failed"));
       setPhase("upload");
     }
   };
@@ -152,7 +154,7 @@ export default function CropAssistant() {
               <div className="text-center">
                 <p className="text-sm font-medium text-foreground">{t("assistant.upload_prompt")}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  {hasImage ? `Selected: ${selectedFile?.name}` : "PNG, JPG up to 5MB"}
+                  {hasImage ? `${t("assistant.selected")}: ${selectedFile?.name}` : t("assistant.file_hint")}
                 </p>
               </div>
             </div>
@@ -211,24 +213,48 @@ export default function CropAssistant() {
               <div>
                 <p className="text-xs text-muted-foreground font-medium">{t("assistant.disease")}</p>
                 <p className="text-lg font-heading font-bold text-foreground">{result.diseaseLabel}</p>
+                {typeof result.confidence === "number" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("assistant.confidence")} : {result.confidence.toFixed(1)}%
+                  </p>
+                )}
+                {result.diagnosisStatus && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("assistant.status")}: {result.diagnosisStatus === "confirmed" ? t("assistant.status_confirmed") : result.diagnosisStatus === "low_confidence" ? t("assistant.status_low") : t("assistant.status_unknown")}
+                  </p>
+                )}
               </div>
             </div>
 
+            {result.topPredictions && result.topPredictions.length > 1 && (
+              <div className="glass-card p-6">
+                <p className="text-sm font-semibold text-foreground mb-3">{t("assistant.alternatives")}</p>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  {result.topPredictions.slice(1, 4).map((pred, idx) => (
+                    <li key={`alt-${idx}`} className="flex justify-between gap-3">
+                      <span>{pred.label}</span>
+                      <span className="font-medium">{Number(pred.confidence || 0).toFixed(1)}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="glass-card p-6 space-y-4">
               <div>
-                <p className="text-sm font-semibold text-foreground">What is happening</p>
-                <p className="text-sm text-muted-foreground mt-1">{result.whatIsHappening || "Not available"}</p>
+                <p className="text-sm font-semibold text-foreground">{t("assistant.what_happening")}</p>
+                <p className="text-sm text-muted-foreground mt-1">{result.whatIsHappening || t("assistant.not_available")}</p>
               </div>
               {result.whyItHappens && (
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Why this happens</p>
+                  <p className="text-sm font-semibold text-foreground">{t("assistant.why_happens")}</p>
                   <p className="text-sm text-muted-foreground mt-1">{result.whyItHappens}</p>
                 </div>
               )}
             </div>
 
             <div className="glass-card p-6">
-              <p className="text-sm font-semibold text-foreground mb-3">Do this now (today)</p>
+              <p className="text-sm font-semibold text-foreground mb-3">{t("assistant.now")}</p>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 {(result.doThisNow || []).map((step, idx) => (
                   <li key={`now-${idx}`} className="flex gap-2">
@@ -240,7 +266,7 @@ export default function CropAssistant() {
             </div>
 
             <div className="glass-card p-6">
-              <p className="text-sm font-semibold text-foreground mb-3">Plan for next 7 days</p>
+              <p className="text-sm font-semibold text-foreground mb-3">{t("assistant.next7")}</p>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 {(result.next7DaysPlan || []).map((step, idx) => (
                   <li key={`week-${idx}`} className="flex gap-2">
@@ -252,7 +278,7 @@ export default function CropAssistant() {
             </div>
 
             <div className="glass-card p-6">
-              <p className="text-sm font-semibold text-foreground mb-3">How to prevent again</p>
+              <p className="text-sm font-semibold text-foreground mb-3">{t("assistant.prevent")}</p>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 {(result.preventNextTime || []).map((tip, idx) => (
                   <li key={`prev-${idx}`} className="flex gap-2">
@@ -264,7 +290,7 @@ export default function CropAssistant() {
             </div>
 
             <div className="glass-card p-6">
-              <p className="text-sm font-semibold text-foreground mb-3">How to reduce crop loss now</p>
+              <p className="text-sm font-semibold text-foreground mb-3">{t("assistant.loss_reduce")}</p>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 {(result.saveYourYield || []).map((tip, idx) => (
                   <li key={`loss-${idx}`} className="flex gap-2">
@@ -277,15 +303,15 @@ export default function CropAssistant() {
 
             {result.pesticideOptions?.length > 0 && (
               <div className="glass-card p-6">
-                <p className="text-sm font-semibold text-foreground mb-3">Suggested pesticide options</p>
+                <p className="text-sm font-semibold text-foreground mb-3">{t("assistant.pesticides")}</p>
                 <div className="space-y-3">
                   {result.pesticideOptions.map((p, idx) => (
                     <div key={`pest-${idx}`} className="rounded-xl bg-white/60 p-3 border border-white/50">
                       <p className="text-sm font-semibold text-foreground">{p.name}</p>
-                      {p.useWhen && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">When:</span> {p.useWhen}</p>}
-                      {p.dosage && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Dose:</span> {p.dosage}</p>}
-                      {p.timing && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Timing:</span> {p.timing}</p>}
-                      {p.safety && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Safety:</span> {p.safety}</p>}
+                      {p.useWhen && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">{t("assistant.when")}:</span> {p.useWhen}</p>}
+                      {p.dosage && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">{t("assistant.dose")}:</span> {p.dosage}</p>}
+                      {p.timing && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">{t("assistant.timing")}:</span> {p.timing}</p>}
+                      {p.safety && <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">{t("assistant.safety")}:</span> {p.safety}</p>}
                     </div>
                   ))}
                 </div>
@@ -294,7 +320,7 @@ export default function CropAssistant() {
 
             {result.warningSigns?.length > 0 && (
               <div className="glass-card p-6">
-                <p className="text-sm font-semibold text-foreground mb-3">Warning signs to watch</p>
+                <p className="text-sm font-semibold text-foreground mb-3">{t("assistant.warning_signs")}</p>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   {result.warningSigns.map((w, idx) => (
                     <li key={`warn-${idx}`} className="flex gap-2">
@@ -303,20 +329,6 @@ export default function CropAssistant() {
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
-
-            {result.localLanguageAdvice && (
-              <div className="glass-card p-6">
-                <p className="text-sm font-semibold text-foreground">Local language summary</p>
-                <p className="text-sm text-muted-foreground mt-1">{result.localLanguageAdvice}</p>
-              </div>
-            )}
-
-            {result.importantNote && (
-              <div className="glass-card p-6 border border-amber-300/40 bg-amber-50/40">
-                <p className="text-sm font-semibold text-foreground">Important note</p>
-                <p className="text-sm text-muted-foreground mt-1">{result.importantNote}</p>
               </div>
             )}
 

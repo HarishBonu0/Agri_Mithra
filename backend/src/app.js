@@ -74,6 +74,30 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/health/ai', (req, res) => {
+  const roboflowConfigured = Boolean(config.roboflowApiKey && config.roboflowUrl);
+  const geminiConfigured = Boolean(config.geminiApiKey);
+  const openrouterConfigured = Boolean(config.openrouterApiKey);
+
+  const canRunVisionFallback = geminiConfigured || openrouterConfigured;
+  const detectionReady = roboflowConfigured || canRunVisionFallback;
+
+  res.status(detectionReady ? 200 : 503).json({
+    status: detectionReady ? 'ok' : 'degraded',
+    providerOrder: config.llmProvider || 'auto',
+    cropDetection: {
+      roboflowConfigured,
+      roboflowUrlSet: Boolean(config.roboflowUrl),
+      geminiConfigured,
+      openrouterConfigured,
+      canRunVisionFallback,
+      detectionReady,
+    },
+    requestId: req.requestId,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // --- Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/crop', cropRoutes);

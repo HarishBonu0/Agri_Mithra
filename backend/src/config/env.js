@@ -35,6 +35,9 @@ export const config = {
   // AI services (optional — services degrade gracefully if missing)
   get roboflowApiKey() { return process.env.ROBOFLOW_API_KEY || ''; },
   get roboflowUrl() { return process.env.ROBOFLOW_URL || ''; },
+  get llmProvider() { return process.env.LLM_PROVIDER || 'auto'; },
+  get openrouterApiKey() { return process.env.OPENROUTER_API_KEY || ''; },
+  get openrouterModel() { return process.env.OPENROUTER_MODEL || ''; },
   get geminiApiKey() { return process.env.GEMINI_API_KEY || ''; },
   get newsApiKey() { return process.env.NEWS_API_KEY || ''; },
 };
