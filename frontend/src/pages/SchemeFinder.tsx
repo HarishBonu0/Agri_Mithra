@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import { Send, Sparkles, CornerDownRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useI18n } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth";
+import { useNavigate } from "react-router-dom";
 
 interface Message {
   role: "user" | "bot";
@@ -17,6 +19,8 @@ const quickQuestions = [
 
 export default function SchemeFinder() {
   const { t } = useI18n();
+  const { isLoggedIn } = useAuth();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([
     { role: "bot", text: "Hello! I can help you find government schemes for agriculture. What would you like to know?" },
   ]);
@@ -27,6 +31,23 @@ export default function SchemeFinder() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
+
+  if (!isLoggedIn) {
+    return (
+      <div className="max-w-3xl mx-auto flex flex-col items-center justify-center h-[300px]">
+        <div className="text-center">
+          <p className="text-lg font-semibold text-foreground mb-4">Login Required</p>
+          <p className="text-muted-foreground mb-6">Please login to access Scheme Finder</p>
+          <button
+            onClick={() => navigate("/login")}
+            className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const send = (text: string) => {
     if (!text.trim()) return;
@@ -47,8 +68,8 @@ export default function SchemeFinder() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)]">
-      <div className="mb-4">
+    <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)]">
+      <div className="mb-5">
         <h1 className="font-heading text-2xl font-bold text-foreground">{t("schemes.title")}</h1>
       </div>
 
@@ -62,9 +83,9 @@ export default function SchemeFinder() {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm whitespace-pre-line ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm whitespace-pre-line shadow-md ${
                 msg.role === "user"
-                  ? "bg-primary text-primary-foreground rounded-br-md"
+                  ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-br-md hover:shadow-lg transition"
                   : "glass-card rounded-bl-md text-foreground"
               }`}
             >
@@ -75,7 +96,7 @@ export default function SchemeFinder() {
 
         {typing && (
           <div className="flex justify-start">
-            <div className="glass-card rounded-2xl rounded-bl-md px-4 py-3 flex gap-1.5">
+            <div className="glass-card rounded-2xl rounded-bl-md px-4 py-3 flex gap-1.5 shadow-md">
               <span className="typing-dot" />
               <span className="typing-dot" />
               <span className="typing-dot" />
@@ -91,8 +112,9 @@ export default function SchemeFinder() {
                 <button
                   key={q}
                   onClick={() => send(q)}
-                  className="px-3 py-1.5 rounded-full bg-muted text-xs font-medium text-foreground hover:bg-secondary transition-colors active:scale-[0.97]"
+                  className="px-3.5 py-2 rounded-full bg-white/70 backdrop-blur-lg shadow-md text-xs font-medium text-foreground hover:bg-white hover:scale-[1.02] transition-all duration-300 active:scale-[0.97] inline-flex items-center gap-1.5"
                 >
+                  <Sparkles className="h-3.5 w-3.5 text-secondary" />
                   {q}
                 </button>
               ))}
@@ -103,7 +125,7 @@ export default function SchemeFinder() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex items-center gap-2 bg-card rounded-xl border border-border p-2">
+      <div className="flex items-center gap-2 bg-white/70 backdrop-blur-lg shadow-md rounded-2xl border border-white/50 p-2.5">
         <input
           type="text"
           value={input}
@@ -115,8 +137,9 @@ export default function SchemeFinder() {
         <button
           onClick={() => send(input)}
           disabled={!input.trim()}
-          className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.95]"
+          className="h-10 rounded-xl px-3 bg-gradient-to-r from-primary to-secondary text-primary-foreground flex items-center justify-center gap-1.5 hover:shadow-lg hover:scale-[1.02] transition duration-300 disabled:opacity-40 active:scale-[0.95]"
         >
+          <CornerDownRight className="h-3.5 w-3.5" />
           <Send className="h-4 w-4" />
         </button>
       </div>

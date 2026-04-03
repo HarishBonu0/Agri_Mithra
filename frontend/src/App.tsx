@@ -4,7 +4,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { I18nProvider } from "@/lib/i18n";
+import { AuthProvider } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import CropAssistant from "./pages/CropAssistant";
 import SchemeFinder from "./pages/SchemeFinder";
@@ -17,19 +22,51 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <I18nProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppLayout>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/assistant" element={<CropAssistant />} />
-              <Route path="/schemes" element={<SchemeFinder />} />
-              <Route path="/news" element={<News />} />
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <AppLayout>
+                    <Dashboard />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/assistant"
+                element={
+                  <AppLayout>
+                    <CropAssistant />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/schemes"
+                element={
+                  <AppLayout>
+                    <SchemeFinder />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/news"
+                element={
+                  <AppLayout>
+                    <News />
+                  </AppLayout>
+                }
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </AppLayout>
-        </BrowserRouter>
+          </BrowserRouter>
+        </AuthProvider>
       </I18nProvider>
     </TooltipProvider>
   </QueryClientProvider>

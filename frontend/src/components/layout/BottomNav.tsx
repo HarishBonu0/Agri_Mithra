@@ -3,7 +3,7 @@ import { NavLink } from "@/components/NavLink";
 import { useI18n } from "@/lib/i18n";
 
 const navItems = [
-  { key: "nav.dashboard", url: "/", icon: LayoutDashboard },
+  { key: "nav.dashboard", url: "/dashboard", icon: LayoutDashboard },
   { key: "nav.assistant", url: "/assistant", icon: Scan },
   { key: "nav.schemes", url: "/schemes", icon: MessageSquare },
   { key: "nav.news", url: "/news", icon: Newspaper },
@@ -19,7 +19,7 @@ export function BottomNav() {
           <NavLink
             key={item.url}
             to={item.url}
-            end={item.url === "/"}
+            end={item.url === "/dashboard"}
             className="flex flex-col items-center gap-0.5 px-3 py-1.5 text-muted-foreground transition-colors"
             activeClassName="text-primary"
           >

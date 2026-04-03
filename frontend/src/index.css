@@ -15,16 +15,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 150 20% 15%;
 
-    --primary: 152 45% 28%;
+    --primary: 142 71% 45%;
     --primary-foreground: 40 33% 97%;
 
-    --secondary: 145 20% 88%;
-    --secondary-foreground: 150 20% 15%;
+    --secondary: 160 84% 39%;
+    --secondary-foreground: 0 0% 100%;
 
     --muted: 140 15% 93%;
     --muted-foreground: 150 10% 45%;
 
-    --accent: 35 90% 55%;
+    --accent: 44 96% 56%;
     --accent-foreground: 30 80% 15%;
 
     --destructive: 0 72% 51%;
@@ -32,28 +32,28 @@
 
     --border: 140 15% 88%;
     --input: 140 15% 88%;
-    --ring: 152 45% 28%;
+    --ring: 142 71% 45%;
 
     --radius: 0.75rem;
 
     --sidebar-background: 150 15% 98%;
     --sidebar-foreground: 150 20% 15%;
-    --sidebar-primary: 152 45% 28%;
+    --sidebar-primary: 142 71% 45%;
     --sidebar-primary-foreground: 40 33% 97%;
     --sidebar-accent: 145 20% 92%;
     --sidebar-accent-foreground: 150 20% 15%;
     --sidebar-border: 140 15% 90%;
-    --sidebar-ring: 152 45% 28%;
+    --sidebar-ring: 142 71% 45%;
 
     /* Custom tokens */
     --glass: 0 0% 100% / 0.7;
     --glass-border: 140 15% 88% / 0.5;
     --surface-warm: 35 60% 96%;
     --surface-green: 145 30% 95%;
-    --risk-low: 152 60% 40%;
+    --risk-low: 142 71% 45%;
     --risk-medium: 40 90% 50%;
     --risk-high: 0 72% 51%;
-    --chat-user: 152 45% 28%;
+    --chat-user: 142 71% 45%;
     --chat-bot: 140 15% 93%;
   }
 }
@@ -64,7 +64,9 @@
   }
 
   body {
-    @apply bg-background text-foreground font-body antialiased;
+    @apply text-foreground font-body antialiased;
+    background-image: linear-gradient(140deg, #f6fff8 0%, #eef7f0 100%);
+    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -74,11 +76,11 @@
 
 @layer utilities {
   .glass-card {
-    @apply bg-card/70 backdrop-blur-md border border-border/50 shadow-sm;
+    @apply bg-white/70 backdrop-blur-md border border-border/60 shadow-md rounded-2xl;
   }
 
   .glass-card-hover {
-    @apply glass-card transition-all duration-200 ease-out hover:shadow-md hover:-translate-y-0.5;
+    @apply glass-card transition duration-300 hover:scale-[1.02] hover:shadow-lg;
   }
 
   .btn-glow {
