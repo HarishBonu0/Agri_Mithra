@@ -15,6 +15,7 @@ import CropAssistant from "./pages/CropAssistant";
 import SchemeFinder from "./pages/SchemeFinder";
 import News from "./pages/News";
 import NotFound from "./pages/NotFound";
+import SchemeResults from "./pages/SchemeResults";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,14 @@ const App = () => (
                   </AppLayout>
                 }
               />
+                <Route
+                  path="/scheme-results"
+                  element={
+                    <AppLayout>
+                      <SchemeResults />
+                    </AppLayout>
+                  }
+                />
               <Route
                 path="/news"
                 element={

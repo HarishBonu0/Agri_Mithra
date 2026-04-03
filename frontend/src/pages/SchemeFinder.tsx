@@ -1,121 +1,308 @@
 import { useState } from "react";
-import { Send, Sparkles, Landmark } from "lucide-react";
-import { motion } from "framer-motion";
-import { useI18n } from "@/lib/i18n";
-import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
-import { api } from "@/lib/api";
-
-type Scheme = {
-  name?: string;
-  description?: string;
-  eligibility?: string;
-  benefit?: string;
-  applyAt?: string;
-};
+import { motion } from "framer-motion";
+import { Sprout, Loader2, AlertCircle } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export default function SchemeFinder() {
   const { t } = useI18n();
-  const { isLoggedIn, token } = useAuth();
   const navigate = useNavigate();
-
-  const [form, setForm] = useState({ land: "", crop: "", income: "", state: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [schemes, setSchemes] = useState<Scheme[]>([]);
+  const [form, setForm] = useState({
+    state: "Andhra Pradesh",
+    landHectares: "",
+    landUnit: "hectares",
+    annualIncome: "",
+    hasAadhaar: "yes",
+    hasBankAccount: "yes",
+  });
 
-  if (!isLoggedIn) {
-    return (
-      <div className="max-w-3xl mx-auto flex flex-col items-center justify-center h-[300px]">
-        <div className="text-center">
-          <p className="text-lg font-semibold text-foreground mb-4">Login Required</p>
-          <p className="text-muted-foreground mb-6">Please login to access Scheme Finder</p>
-          <button onClick={() => navigate("/login")} className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition">Go to Login</button>
-        </div>
-      </div>
-    );
-  }
+  const parseNumber = (raw: string) => {
+    const normalized = raw.replace(/,/g, "").trim();
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
-  const submit = async () => {
-    if (!token) return;
-    if (!form.land || !form.crop || !form.income) {
-      setError("Land, crop, and income are required");
+  const submit = () => {
+    setError("");
+
+    if (!form.landHectares) {
+      setError(t("schemes.land_required"));
       return;
     }
 
-    setLoading(true);
-    setError("");
-    try {
-      const response = await api.schemes.find(token, {
-        land: Number(form.land),
-        crop: form.crop,
-        income: Number(form.income),
-        state: form.state || undefined,
-      });
-      setSchemes(response.data || []);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch schemes");
-    } finally {
-      setLoading(false);
+    if (!form.annualIncome) {
+      setError(t("schemes.income_required"));
+      return;
     }
+
+    const landValue = parseNumber(form.landHectares);
+    const incomeValue = parseNumber(form.annualIncome);
+
+    if (landValue == null || landValue <= 0) {
+      setError(t("schemes.land_required"));
+      return;
+    }
+
+    if (incomeValue == null || incomeValue < 0) {
+      setError(t("schemes.income_required"));
+      return;
+    }
+
+    const profileData = {
+      state: form.state,
+      annualIncome: incomeValue,
+      isIndianResident: true,
+      farmerType: "landowner",
+      hasCropCultivation: true,
+      hasCropInsuranceNeed: true,
+      needsIrrigation: true,
+      hasAadhaar: form.hasAadhaar === "yes",
+      hasBankAccount: form.hasBankAccount === "yes",
+      hasLandProof: true,
+      isRegisteredCultivator: true,
+      hasEnrolledBeforeSeason: true,
+      enteredAnnualIncome: form.annualIncome,
+      ...(form.landUnit === "acres"
+        ? { landAcres: landValue }
+        : form.landUnit === "cents"
+          ? { landAcres: landValue / 100 }
+        : { landHectares: landValue }),
+    };
+
+    setLoading(true);
+    navigate("/scheme-results", { state: { profileData } });
   };
 
+  const states = [
+    "Andhra Pradesh",
+    "Telangana",
+    "Karnataka",
+    "Tamil Nadu",
+    "Maharashtra",
+    "Other",
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-foreground">{t("schemes.title")}</h1>
-        <p className="text-sm text-muted-foreground mt-1">Find government schemes based on your farm profile.</p>
-      </div>
-
-      <div className="glass-card p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-muted-foreground">Land (acres)</label>
-          <input type="number" min="0" step="0.1" value={form.land} onChange={(e) => setForm((prev) => ({ ...prev, land: e.target.value }))} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none" placeholder="2" />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground">Crop</label>
-          <input type="text" value={form.crop} onChange={(e) => setForm((prev) => ({ ...prev, crop: e.target.value }))} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none" placeholder="paddy" />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground">Annual Income (INR)</label>
-          <input type="number" min="0" value={form.income} onChange={(e) => setForm((prev) => ({ ...prev, income: e.target.value }))} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none" placeholder="120000" />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground">State (optional)</label>
-          <input type="text" value={form.state} onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none" placeholder="Telangana" />
+    <div className="max-w-2xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6 p-4"
+      >
+        <div className="space-y-2">
+          <h1 className="font-heading text-3xl md:text-4xl font-bold text-foreground flex items-center gap-3">
+            <Sprout className="h-8 w-8 text-primary" />
+            {t("schemes.title")}
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            {t("schemes.subtitle")}
+          </p>
         </div>
 
-        <button onClick={submit} disabled={loading} className="md:col-span-2 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-5 py-3.5 text-sm font-semibold text-primary-foreground hover:shadow-lg hover:scale-[1.01] transition disabled:opacity-60">
-          <Send className="h-4 w-4" />
-          {loading ? "Finding schemes..." : "Find Schemes"}
-        </button>
+        <div className="rounded-3xl border border-border bg-card/80 backdrop-blur-md shadow-lg p-8 space-y-6">
+          <h2 className="text-xl font-semibold text-foreground">
+            {t("schemes.profile")}
+          </h2>
 
-        {error && <p className="md:col-span-2 text-sm text-destructive">{error}</p>}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {schemes.map((scheme, i) => (
-          <motion.div key={`${scheme.name || "scheme"}-${i}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05, duration: 0.2 }} className="glass-card p-5 border border-white/40">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Landmark className="h-4 w-4 text-primary" />
-              </div>
-              <p className="font-semibold text-foreground">{scheme.name || "Scheme"}</p>
-            </div>
-            <p className="text-sm text-muted-foreground">{scheme.description}</p>
-            {scheme.eligibility && <p className="text-sm mt-2"><span className="font-semibold">Eligibility:</span> {scheme.eligibility}</p>}
-            {scheme.benefit && <p className="text-sm mt-2"><span className="font-semibold">Benefit:</span> {scheme.benefit}</p>}
-            {scheme.applyAt && <p className="text-sm mt-2"><span className="font-semibold">Apply at:</span> {scheme.applyAt}</p>}
+          {/* Question 1: State */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-2"
+          >
+            <label className="text-base font-medium text-foreground">
+              1. {t("schemes.state")}
+            </label>
+            <select
+              value={form.state}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, state: e.target.value }))
+              }
+              className="w-full rounded-2xl border border-border bg-background px-5 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+            >
+              {states.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
           </motion.div>
-        ))}
-      </div>
 
-      {!loading && schemes.length === 0 && (
-        <div className="glass-card p-8 text-center">
-          <Sparkles className="h-6 w-6 text-primary mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Enter farm details to get personalized scheme suggestions.</p>
+          {/* Question 2: Land Size */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-2"
+          >
+            <label className="text-base font-medium text-foreground">
+              2. {t("schemes.land")}
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[1fr_140px]">
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={form.landHectares}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, landHectares: e.target.value }))
+              }
+              placeholder="Example: 1.5"
+              className="w-full rounded-2xl border border-border bg-background px-5 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+            />
+              <select
+                value={form.landUnit}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, landUnit: e.target.value }))
+                }
+                className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              >
+                <option value="hectares">{t("schemes.unit_hectares")}</option>
+                <option value="acres">{t("schemes.unit_acres")}</option>
+                <option value="cents">{t("schemes.unit_cents")}</option>
+              </select>
+            </div>
+          </motion.div>
+
+          {/* Question 3: Annual Income */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="space-y-2"
+          >
+            <label className="text-base font-medium text-foreground">
+              3. {t("schemes.income")}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.annualIncome}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, annualIncome: e.target.value }))
+              }
+              placeholder={t("schemes.income_example")}
+              className="w-full rounded-2xl border border-border bg-background px-5 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+            />
+          </motion.div>
+
+          {/* Question 4: Aadhaar */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-2"
+          >
+            <label className="text-base font-medium text-foreground">
+              4. {t("schemes.aadhaar")}
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="aadhaar"
+                  value="yes"
+                  checked={form.hasAadhaar === "yes"}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, hasAadhaar: e.target.value }))
+                  }
+                  className="w-5 h-5 text-primary"
+                />
+                <span className="text-foreground">{t("common.yes")}</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="aadhaar"
+                  value="no"
+                  checked={form.hasAadhaar === "no"}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, hasAadhaar: e.target.value }))
+                  }
+                  className="w-5 h-5 text-primary"
+                />
+                <span className="text-foreground">{t("common.no")}</span>
+              </label>
+            </div>
+          </motion.div>
+
+          {/* Question 5: Bank Account */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5 }}
+            className="space-y-2"
+          >
+            <label className="text-base font-medium text-foreground">
+              5. {t("schemes.bank")}
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="bank"
+                  value="yes"
+                  checked={form.hasBankAccount === "yes"}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      hasBankAccount: e.target.value,
+                    }))
+                  }
+                  className="w-5 h-5 text-primary"
+                />
+                <span className="text-foreground">{t("common.yes")}</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="bank"
+                  value="no"
+                  checked={form.hasBankAccount === "no"}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      hasBankAccount: e.target.value,
+                    }))
+                  }
+                  className="w-5 h-5 text-primary"
+                />
+                <span className="text-foreground">{t("common.no")}</span>
+              </label>
+            </div>
+          </motion.div>
+
+          {error && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 p-4"
+            >
+              <AlertCircle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-destructive">{error}</p>
+            </motion.div>
+          )}
+
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            onClick={submit}
+            disabled={loading}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-4 text-base font-semibold text-primary-foreground shadow-lg hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Sprout className="h-5 w-5" />
+            )}
+            {t("schemes.check")}
+          </motion.button>
         </div>
-      )}
+      </motion.div>
     </div>
   );
 }
