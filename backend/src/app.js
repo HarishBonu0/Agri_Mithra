@@ -14,6 +14,7 @@ import cropRoutes from './routes/cropRoutes.js';
 import schemeRoutes from './routes/schemeRoutes.js';
 import newsRoutes from './routes/newsRoutes.js';
 import aiAssistantRoutes from './routes/aiAssistantRoutes.js';
+import chatHistoryRoutes from './routes/chatHistoryRoutes.js';
 import newsRouter from './routes/news.js';
 import adminRoutes from './routes/adminRoutes.js';
 
@@ -82,6 +83,7 @@ app.use('/api/schemes', schemeRoutes);
 app.use('/api/news', newsRouter);
 app.use('/api/news', newsRoutes);
 app.use('/api/ai-assistant', aiAssistantRoutes);
+app.use('/api/chat', chatHistoryRoutes);
 app.use('/api/admin', adminRoutes);
 
 // --- 404 ---

@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { generateAgricultureAssistantReply } from '../services/aiAssistantService.js';
 
 const parseJsonSafe = (value, fallback = {}) => {
@@ -17,7 +18,7 @@ export const chatWithAssistant = async (req, res) => {
     const prompt = body.prompt || message;
     const language = body.language || 'en';
     const weatherHint = body.weatherHint || '';
-    const analysis = parseJsonSafe(body.analysis, {});
+    const history = Array.isArray(body.history) ? body.history : parseJsonSafe(body.history, []);
 
     if (!message && !req.file) {
       return res.status(400).json({
@@ -41,7 +42,7 @@ export const chatWithAssistant = async (req, res) => {
       language,
       weatherHint,
       fileMeta,
-      analysis,
+      history,
     });
 
     return res.json({
@@ -62,13 +63,50 @@ export const chatWithAssistant = async (req, res) => {
 export const sttFallback = async (_req, res) => {
   return res.status(501).json({
     success: false,
-    message: 'Backend STT not configured',
+    message: 'Backend STT not configured. Use browser Speech Recognition.',
   });
 };
 
-export const ttsFallback = async (_req, res) => {
-  return res.status(501).json({
-    success: false,
-    message: 'Backend TTS not configured',
-  });
+/**
+ * TTS proxy — calls Google Translate TTS server-side to avoid browser CORS restrictions.
+ * Supports Telugu (te), Hindi (hi), Tamil (ta), Kannada (kn), English (en).
+ * Accepts one chunk of text per request (max 200 chars). Frontend chains multiple calls for longer text.
+ */
+export const ttsProxy = async (req, res) => {
+  const { text, language } = req.body || {};
+
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ success: false, message: 'text is required' });
+  }
+
+  const langMap = { te: 'te', hi: 'hi', ta: 'ta', kn: 'kn', en: 'en' };
+  const langCode = langMap[language] || 'en';
+  const chunk = text.trim().slice(0, 200);
+
+  try {
+    const response = await axios.get('https://translate.google.com/translate_tts', {
+      params: {
+        ie: 'UTF-8',
+        tl: langCode,
+        client: 'tw-ob',
+        q: chunk,
+      },
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        'Referer': 'https://translate.google.com/',
+        'Accept': 'audio/mpeg,audio/*',
+      },
+      timeout: 12000,
+    });
+
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Cache-Control': 'no-store',
+    });
+    return res.send(Buffer.from(response.data));
+  } catch (err) {
+    console.error('[TTS] Google proxy failed:', err.message);
+    return res.status(503).json({ success: false, message: 'TTS service temporarily unavailable' });
+  }
 };

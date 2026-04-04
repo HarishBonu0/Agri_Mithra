@@ -1,1 +1,178 @@
-import axios from 'axios';import { withRetry } from '../utils/retry.js';import { generateTextWithLlm } from './llmService.js';const FALLBACK_NEWS = [  { title: 'Government increases MSP for Kharif crops', summary: 'The government raised Minimum Support Prices for major Kharif crops to support farmer income.', category: 'Policy', source: 'AgriNews', url: '' },  { title: 'New drought-resistant rice variety released', summary: 'Scientists developed a rice variety requiring 30% less water with higher yields in dry conditions.', category: 'Crops', source: 'AgriNews', url: '' },  { title: 'Onion prices rise in major markets', summary: 'Onion prices increased due to lower supply from producing states. Farmers advised to plan accordingly.', category: 'Market', source: 'AgriNews', url: '' },];const buildSummaryPrompt = (articles) => `Summarize these agriculture news articles for Indian farmers in simple English.Respond ONLY with a valid JSON array (no markdown):${JSON.stringify(articles.map((a) => ({ title: a.title, description: a.description || '' })), null, 2)}Format: [{ "title": "...", "summary": "1-2 sentence farmer-friendly summary", "category": "Crops|Market|Policy|Technology|General" }]`.trim();const fetchAndSummarizeNews = async () => {  const newsApiKey = process.env.NEWS_API_KEY;  let rawArticles = [];  if (newsApiKey) {    try {      const res = await withRetry(        () => axios.get('https://newsapi.org/v2/everything', {          params: { q: 'agriculture India farming crops', language: 'en', sortBy: 'publishedAt', pageSize: 6, apiKey: newsApiKey },          timeout: 10000,        }),        { retries: 1, baseDelayMs: 500 }      );      rawArticles = res.data?.articles || [];    } catch (err) {      console.error('[News] NewsAPI error:', err.message);    }  } else {    console.warn('[News] NEWS_API_KEY not set');  }  if (rawArticles.length === 0) {    console.warn('[News] No articles G�� returning fallback');    return FALLBACK_NEWS;  }  const result = await generateTextWithLlm({    prompt: buildSummaryPrompt(rawArticles),    temperature: 0.2,    maxOutputTokens: 1024,    logTag: 'News',  });  if (result?.text) {    try {      const cleaned = result.text.replace(/```json|```/g, '').trim();      const summaries = JSON.parse(cleaned);      return summaries.map((s, i) => ({        title: s.title || rawArticles[i]?.title || '',        summary: s.summary || '',        category: s.category || 'General',        source: rawArticles[i]?.source?.name || '',        url: rawArticles[i]?.url || '',      }));    } catch (err) {      console.error('[News] JSON parse error:', err.message);    }  }  return rawArticles.slice(0, 6).map((a) => ({    title: a.title,    summary: a.description || 'No summary available.',    category: 'General',    source: a.source?.name || '',    url: a.url || '',  }));};export default fetchAndSummarizeNews;
+import axios from 'axios';
+import { withRetry } from '../utils/retry.js';
+import { generateTextWithLlm } from './llmService.js';
+
+const FALLBACK_NEWS = [
+	{
+		title: 'Government increases MSP for Kharif crops',
+		summary: 'The government raised Minimum Support Prices for major Kharif crops to support farmer income.',
+		category: 'Policy',
+		source: 'AgriNews',
+		url: '',
+	},
+	{
+		title: 'New drought-resistant rice variety released',
+		summary: 'Scientists developed a rice variety requiring 30% less water with higher yields in dry conditions.',
+		category: 'Crops',
+		source: 'AgriNews',
+		url: '',
+	},
+	{
+		title: 'Onion prices rise in major markets',
+		summary: 'Onion prices increased due to lower supply from producing states. Farmers advised to plan accordingly.',
+		category: 'Market',
+		source: 'AgriNews',
+		url: '',
+	},
+];
+
+const FALLBACK_NEWS_TE = [
+	{
+		title: 'ఖరీఫ్ పంటల MSPలను ప్రభుత్వం పెంచింది',
+		summary: 'రైతుల ఆదాయానికి మద్దతుగా ప్రధాన ఖరీఫ్ పంటల కనీస మద్దతు ధరలను ప్రభుత్వం పెంచింది.',
+		category: 'Policy',
+		source: 'AgriNews',
+		url: '',
+	},
+	{
+		title: 'తక్కువ నీటితో పెరిగే కొత్త వరి రకం విడుదల',
+		summary: 'శాస్త్రవేత్తలు 30% తక్కువ నీటితో మంచి దిగుబడి ఇచ్చే కొత్త వరి విత్తన రకాన్ని అభివృద్ధి చేశారు.',
+		category: 'Crops',
+		source: 'AgriNews',
+		url: '',
+	},
+	{
+		title: 'ప్రధాన మార్కెట్లలో ఉల్లిపాయ ధరలు పెరిగాయి',
+		summary: 'ఉత్పత్తి రాష్ట్రాల నుంచి సరఫరా తగ్గడంతో ఉల్లిపాయ ధరలు పెరిగాయి. రైతులు మార్కెట్ ప్రణాళికపై దృష్టి పెట్టాలి.',
+		category: 'Market',
+		source: 'AgriNews',
+		url: '',
+	},
+];
+
+const buildSummaryPrompt = (articles) =>
+	`Summarize these agriculture news articles for Indian farmers in simple English.
+Respond ONLY with a valid JSON array (no markdown):
+${JSON.stringify(
+		articles.map((a) => ({ title: a.title, description: a.description || '' })),
+		null,
+		2
+	)}
+Format: [{ "title": "...", "summary": "1-2 sentence farmer-friendly summary", "category": "Crops|Market|Policy|Technology|General" }]`.trim();
+
+const toRawNewsItems = (articles) =>
+	articles.slice(0, 6).map((a) => ({
+		title: a.title || '',
+		summary: a.description || 'No summary available.',
+		category: 'General',
+		source: a.source?.name || '',
+		url: a.url || '',
+	}));
+
+const parseLang = (lang) => {
+	const value = String(lang || 'en').toLowerCase();
+	return value.startsWith('te') ? 'te' : 'en';
+};
+
+const translateTextToTelugu = async (text) => {
+	if (!text || !text.trim()) return text;
+	if (/[\u0C00-\u0C7F]/.test(text)) return text;
+
+	try {
+		const response = await fetch(
+			`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=${encodeURIComponent(text)}`,
+		);
+
+		if (!response.ok) return text;
+
+		const payload = await response.json();
+		const translated = Array.isArray(payload?.[0])
+			? payload[0].map((chunk) => chunk?.[0] || '').join('')
+			: '';
+
+		return translated || text;
+	} catch {
+		return text;
+	}
+};
+
+const localizeForLanguage = async (items, lang) => {
+	if (lang !== 'te') return items;
+
+	return Promise.all(
+		(items || []).map(async (item) => ({
+			...item,
+			title: await translateTextToTelugu(item.title || ''),
+			summary: await translateTextToTelugu(item.summary || ''),
+		})),
+	);
+};
+
+const fetchAndSummarizeNews = async (options = {}) => {
+	const lang = parseLang(options.lang);
+	const newsApiKey = process.env.NEWS_API_KEY;
+	let rawArticles = [];
+
+	if (newsApiKey) {
+		try {
+			const res = await withRetry(
+				() =>
+					axios.get('https://newsapi.org/v2/everything', {
+						params: {
+							q: 'agriculture India farming crops',
+							language: 'en',
+							sortBy: 'publishedAt',
+							pageSize: 6,
+							apiKey: newsApiKey,
+						},
+						timeout: 10000,
+					}),
+				{ retries: 1, baseDelayMs: 500 }
+			);
+			rawArticles = res.data?.articles || [];
+		} catch (err) {
+			console.error('[News] NewsAPI error:', err.message);
+		}
+	} else {
+		console.warn('[News] NEWS_API_KEY not set');
+	}
+
+	if (rawArticles.length === 0) {
+		console.warn('[News] No articles - returning fallback');
+		return lang === 'te' ? FALLBACK_NEWS_TE : FALLBACK_NEWS;
+	}
+
+	try {
+		const result = await generateTextWithLlm({
+			prompt: buildSummaryPrompt(rawArticles),
+			temperature: 0.2,
+			maxOutputTokens: 1024,
+			logTag: 'News',
+		});
+
+		if (result?.text) {
+			const cleaned = result.text.replace(/```json|```/g, '').trim();
+			const summaries = JSON.parse(cleaned);
+
+			if (Array.isArray(summaries) && summaries.length > 0) {
+				const normalized = summaries.map((s, i) => ({
+					title: s.title || rawArticles[i]?.title || '',
+					summary: s.summary || rawArticles[i]?.description || 'No summary available.',
+					category: s.category || 'General',
+					source: rawArticles[i]?.source?.name || '',
+					url: rawArticles[i]?.url || '',
+				}));
+
+				return localizeForLanguage(normalized, lang);
+			}
+		}
+	} catch (err) {
+		console.error('[News] Summarization error:', err.message);
+	}
+
+	// Fail-open: always return usable articles instead of bubbling a 500.
+	const rawItems = toRawNewsItems(rawArticles);
+	return localizeForLanguage(rawItems, lang);
+};
+
+export default fetchAndSummarizeNews;

@@ -4,7 +4,7 @@ import fetchAndSummarizeNews from '../services/newsService.js';
 export const getNews = async (req, res) => {
   try {
     console.log('[News] Fetching agriculture news');
-    const articles = await fetchAndSummarizeNews();
+    const articles = await fetchAndSummarizeNews({ lang: req.query.lang });
 
     return res.json({
       success: true,
@@ -23,7 +23,7 @@ export const getNews = async (req, res) => {
 export const getHeadlines = async (req, res) => {
   try {
     console.log('[News] Fetching headlines');
-    const items = await fetchAndSummarizeNews();
+    const items = await fetchAndSummarizeNews({ lang: req.query.lang });
 
     const articles = (Array.isArray(items) ? items : []).map((item) => ({
       title: item.title || '',
