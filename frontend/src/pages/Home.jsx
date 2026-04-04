@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Languages, Sprout, ScrollText, Newspaper, ScanLine, Landmark, MessageSquareText } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
@@ -67,9 +67,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5fff6] via-[#f8fbf7] to-[#eef7f0] text-foreground">
-      <main className="mx-auto max-w-6xl px-4 py-10 md:py-16">
+      <main className="mx-auto max-w-6xl px-4 py-8 md:py-12">
         {/* Hero Section with Animated Component */}
-        <section className="rounded-3xl border border-white/50 bg-white/70 backdrop-blur-lg p-8 shadow-md md:p-12 hover:shadow-lg transition duration-300 mb-12">
+        <section className="rounded-3xl border border-white/50 bg-white/70 backdrop-blur-lg p-7 shadow-md md:p-10 hover:shadow-lg transition duration-300 mb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div>
               <h1 className="font-heading text-5xl font-bold tracking-tight md:text-6xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
@@ -86,7 +86,7 @@ export default function Home() {
                   {t.getStarted}
                 </button>
                 <button
-                  onClick={() => handleModuleClick("/dashboard")}
+                  onClick={() => navigate("/dashboard")}
                   className="inline-flex items-center rounded-2xl border-2 border-primary/30 bg-white/50 backdrop-blur px-6 py-3.5 text-sm font-semibold text-primary transition-all duration-300 hover:bg-white hover:border-primary hover:shadow-lg hover:scale-105 active:scale-95"
                 >
                   {t.tryDemo}
@@ -100,7 +100,7 @@ export default function Home() {
         </section>
 
         {/* Features Section */}
-        <section className="mb-12 animate-slide-up">
+        <section className="mb-10 animate-slide-up">
           <h2 className="mb-6 font-heading text-3xl font-bold">{t.featuresTitle}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {[
@@ -124,7 +124,7 @@ export default function Home() {
         </section>
 
         {/* Language Section */}
-        <section className="mb-12 animate-slide-up rounded-3xl border border-white/50 bg-white/70 backdrop-blur-lg p-6 md:p-8 hover:shadow-lg transition duration-300">
+        <section className="mb-10 animate-slide-up rounded-3xl border border-white/50 bg-white/70 backdrop-blur-lg p-6 md:p-8 hover:shadow-lg transition duration-300">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="font-heading text-2xl font-semibold">{t.languageTitle}</h2>
@@ -158,7 +158,7 @@ export default function Home() {
         </section>
 
         {/* Benefits Section */}
-        <section className="mb-12 animate-slide-up">
+        <section className="mb-6 animate-slide-up">
           <h2 className="mb-6 font-heading text-3xl font-bold">{t.benefitsTitle}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {[

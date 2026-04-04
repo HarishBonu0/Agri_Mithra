@@ -1,11 +1,24 @@
-import { Search, Globe } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Globe } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "@/lib/i18n";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 export function TopNavbar() {
   const { lang, setLang, t } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const titleByPath: Record<string, string> = {
+    "/dashboard": "nav.dashboard",
+    "/assistant": "nav.assistant",
+    "/schemes": "nav.schemes",
+    "/scheme-results": "nav.schemes",
+    "/news": "nav.news",
+    "/ai-assistant": "nav.aiAssistant",
+    "/admin": "nav.admin",
+  };
+
+  const pageTitleKey = titleByPath[location.pathname] || "brand.name";
 
   return (
     <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
@@ -16,13 +29,14 @@ export function TopNavbar() {
         <span className="font-heading font-semibold text-foreground">{t("brand.name")}</span>
       </div>
 
-      <div className="hidden md:flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5 w-72">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder={t("search.placeholder")}
-          className="bg-transparent text-sm outline-none flex-1 text-foreground placeholder:text-muted-foreground"
-        />
+      <div className="hidden md:flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+          <span className="text-primary-foreground font-heading font-bold text-sm">AM</span>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">{t("brand.name")}</p>
+          <p className="text-sm font-semibold text-foreground leading-tight">{t(pageTitleKey)}</p>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
