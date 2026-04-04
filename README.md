@@ -98,11 +98,13 @@ Frontend (`frontend/.env`):
 - Ensure backend CORS allows your frontend production domain
 - Configure MongoDB network access and production secrets
 
+Detailed steps are documented in `DEPLOYMENT.md`.
+
 ## Health Check
 
 Once backend is live:
 
-- `GET /health`
+- `GET /api/health`
 
 ## Core API Prefix
 
@@ -111,7 +113,7 @@ Once backend is live:
 - `/api/schemes`
 - `/api/news`
 - `/api/ai-assistant`
-- `/api/chat-history`
+- `/api/chat`
 
 ## Language Support
 
