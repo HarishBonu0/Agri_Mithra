@@ -173,7 +173,10 @@ export default function CropAssistant() {
               {t("assistant.analyze")}
             </button>
 
-            <button className="mt-2 w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-white/70 backdrop-blur-lg shadow-md text-foreground font-medium text-sm opacity-60 cursor-not-allowed">
+            <button
+              onClick={() => navigate("/ai-assistant")}
+              className="mt-2 w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-white/70 backdrop-blur-lg shadow-md text-foreground font-medium text-sm hover:shadow-lg hover:scale-[1.01] transition duration-300 active:scale-[0.98]"
+            >
               <Mic className="h-4 w-4" />
               {t("assistant.voice")}
             </button>

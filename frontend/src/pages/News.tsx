@@ -114,15 +114,15 @@ export default function News() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-7">
-      <h1 className="font-heading text-2xl font-bold text-foreground">{t("news.title")}</h1>
+    <div className="max-w-5xl mx-auto space-y-5 px-2 sm:px-0">
+      <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground">{t("news.title")}</h1>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setActive(cat)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 inline-flex items-center gap-1.5 ${
+            className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-300 inline-flex items-center gap-1.5 ${
               active === cat
                 ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg"
                 : "bg-white/70 backdrop-blur-lg shadow-md text-muted-foreground hover:bg-white hover:scale-[1.02]"
@@ -140,24 +140,24 @@ export default function News() {
         <p className="text-sm text-muted-foreground">{t("news.no_results")}</p>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-5">
         {filtered.map((article, i) => (
           <motion.article
             key={`${article.title}-${i}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05, duration: 0.25 }}
-            className="group glass-card-hover overflow-hidden cursor-pointer border border-white/40 hover:border-primary/30 rounded-2xl hover:shadow-lg transition-all"
+            className="group overflow-hidden cursor-pointer border border-white/40 rounded-2xl bg-white/75 backdrop-blur-md shadow-md transition-all md:hover:border-primary/30 md:hover:shadow-lg"
           >
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
                 {t(article.category || "news.crops")}
               </span>
-              <h3 className="font-heading font-semibold text-foreground mt-2 text-sm leading-snug group-hover:text-primary transition">
+              <h3 className="font-heading font-semibold text-foreground mt-2 text-sm sm:text-[15px] leading-snug md:group-hover:text-primary transition">
                 {article.title}
               </h3>
-              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-3">{article.summary}</p>
-              <p className="text-[11px] text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-4 sm:line-clamp-3">{article.summary}</p>
+              <p className="text-[11px] text-muted-foreground mt-2 break-words">
                 {article.source || t("news.source_unknown")} • {getRelativeTime(article.publishedAt, t)}
               </p>
               {article.url && (
@@ -165,7 +165,7 @@ export default function News() {
                   href={article.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-4 text-xs font-semibold text-primary inline-flex items-center gap-1.5 hover:scale-[1.05] transition-transform"
+                  className="mt-4 text-xs font-semibold text-primary inline-flex items-center gap-1.5 md:hover:scale-[1.05] transition-transform"
                 >
                   {t("news.read_more")}
                   <ArrowRight className="h-3.5 w-3.5" />

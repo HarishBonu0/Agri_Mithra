@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { WeatherWidget } from "@/components/WeatherWidget";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -70,12 +71,39 @@ export default function Dashboard() {
   const { t, lang } = useI18n();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const quickActions = [
     { key: "dashboard.scan_crop", icon: Scan, color: "bg-primary/10 text-primary", to: "/assistant" },
     { key: "dashboard.find_scheme", icon: Search, color: "bg-secondary/10 text-secondary", to: "/schemes" },
     { key: "dashboard.view_news", icon: Newspaper, color: "bg-accent/10 text-accent", to: "/news" },
   ];
+
+  const featureCards = [
+    {
+      key: "dashboard.scan_crop",
+      descKey: "dashboard.scanCropDesc",
+      icon: Scan,
+      color: "from-primary/45 via-primary/25 to-primary/10",
+      to: "/assistant",
+    },
+    {
+      key: "dashboard.find_scheme",
+      descKey: "dashboard.findSchemeDesc",
+      icon: Search,
+      color: "from-secondary/45 via-secondary/25 to-secondary/10",
+      to: "/schemes",
+    },
+    {
+      key: "dashboard.view_news",
+      descKey: "dashboard.viewNewsDesc",
+      icon: Newspaper,
+      color: "from-accent/50 via-accent/30 to-accent/15",
+      to: "/news",
+    },
+  ];
+
+  const [activeFeature, setActiveFeature] = useState(0);
 
   const [headlines, setHeadlines] = useState<Array<{ title: string; source: string; url: string }>>([]);
   const [headlinesLoading, setHeadlinesLoading] = useState(true);
@@ -109,6 +137,14 @@ export default function Dashboard() {
     fetchLatestTopHeadlines();
   }, [lang]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveFeature((prev) => (prev + 1) % featureCards.length);
+    }, 2600);
+
+    return () => window.clearInterval(timer);
+  }, [featureCards.length]);
+
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -141,7 +177,7 @@ export default function Dashboard() {
         </motion.div>
 
         <motion.div initial="hidden" animate="show" custom={2} variants={fadeUp} className="md:col-span-2">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h3 className="font-heading font-semibold text-sm text-muted-foreground mb-5">{t("dashboard.quick_actions")}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {quickActions.map((action) => (
@@ -156,6 +192,97 @@ export default function Dashboard() {
                   <span className="text-sm font-medium text-foreground">{t(action.key)}</span>
                 </button>
               ))}
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-slate-200/70 bg-gradient-to-br from-white/90 to-slate-50/80 p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("dashboard.featureSpotlightTitle")}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("dashboard.featureSpotlightSubtitle")}</p>
+                </div>
+              </div>
+
+              {isMobile ? (
+                <div className="relative h-48 overflow-hidden">
+                  {featureCards.map((card, idx) => {
+                    const Icon = card.icon;
+                    const isActive = idx === activeFeature;
+
+                    return (
+                      <button
+                        key={card.key}
+                        onClick={() => {
+                          setActiveFeature(idx);
+                          navigate(card.to);
+                        }}
+                        className={`absolute inset-0 w-full h-44 rounded-2xl border border-slate-200/70 bg-gradient-to-br ${card.color} p-4 text-left shadow-lg transition-all duration-500 ${
+                          isActive ? "opacity-100 translate-x-0" : "opacity-0 translate-x-6 pointer-events-none"
+                        }`}
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white/70 flex items-center justify-center mb-3">
+                          <Icon className="h-5 w-5 text-foreground" />
+                        </div>
+                        <p className="font-semibold text-foreground text-base">{t(card.key)}</p>
+                        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{t(card.descKey)}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="relative h-56 [perspective:1000px] [transform-style:preserve-3d] overflow-hidden">
+                  {featureCards.map((card, idx) => {
+                    const Icon = card.icon;
+                    const offset = (idx - activeFeature + featureCards.length) % featureCards.length;
+                    const position = offset === 0 ? 0 : offset === 1 ? 1 : -1;
+                    const isActive = position === 0;
+
+                    return (
+                      <button
+                        key={card.key}
+                        onClick={() => {
+                          setActiveFeature(idx);
+                          navigate(card.to);
+                        }}
+                        className={`absolute inset-0 m-auto w-[74%] h-48 rounded-2xl border border-slate-200/70 bg-gradient-to-br ${card.color} p-5 text-left shadow-lg transition-all duration-500 ${
+                          isActive ? "z-30" : "z-20"
+                        }`}
+                        style={{
+                          transform:
+                            position === 0
+                              ? "translateX(0) rotateY(0deg) scale(1)"
+                              : position > 0
+                                ? "translateX(52%) rotateY(-26deg) scale(0.86)"
+                                : "translateX(-52%) rotateY(26deg) scale(0.86)",
+                          opacity: isActive ? 1 : 0.2,
+                          filter: isActive ? "none" : "saturate(0.85) brightness(0.95)",
+                          backfaceVisibility: "hidden",
+                          WebkitBackfaceVisibility: "hidden",
+                          willChange: "transform, opacity",
+                        }}
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white/70 flex items-center justify-center mb-3">
+                          <Icon className="h-5 w-5 text-foreground" />
+                        </div>
+                        <p className="font-semibold text-foreground text-base">{t(card.key)}</p>
+                        {isActive && (
+                          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{t(card.descKey)}</p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex items-center justify-center gap-2 mt-3">
+                {featureCards.map((card, idx) => (
+                  <button
+                    key={`dot-${card.key}`}
+                    onClick={() => setActiveFeature(idx)}
+                    className={`h-1.5 rounded-full transition-all ${idx === activeFeature ? "w-6 bg-primary" : "w-2 bg-primary/30"}`}
+                    aria-label={`${t(card.key)} ${idx + 1}`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </motion.div>

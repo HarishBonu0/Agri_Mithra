@@ -148,6 +148,37 @@ const AP_TELUGU_SOURCE_NAMES = [
   'Greatandhra',
 ];
 
+const TELUGU_SOURCE_NAME_MAP = {
+  'Sakshi': 'సాక్షి',
+  'Andhra Jyothy': 'ఆంధ్ర జ్యోతి',
+  'Andhrajyothy': 'ఆంధ్ర జ్యోతి',
+  'Andhra Prabha': 'ఆంధ్ర ప్రభ',
+  'Eenadu': 'ఈనాడు',
+  'eenadu pratibha': 'ఈనాడు ప్రతిభ',
+  'V6 Velugu': 'వి6 వెలుగు',
+  'NTV Telugu': 'ఎన్టీవీ తెలుగు',
+  'TV9 Telugu': 'టీవీ9 తెలుగు',
+  'HMTV': 'హెచ్ఎంటీవీ',
+  'Telugu Samayam': 'తెలుగు సమయం',
+  '10TV': '10టీవీ',
+  'Greatandhra': 'గ్రేట్ ఆంధ్ర',
+  'AgriNews': 'వ్యవసాయ వార్తలు',
+  'Unknown source': 'తెలియని మూలం',
+};
+
+const localizeSourceName = (sourceName, lang) => {
+  const source = sourceName || 'Unknown source';
+  if (lang !== 'te') return source;
+
+  const exact = TELUGU_SOURCE_NAME_MAP[source];
+  if (exact) return exact;
+
+  const matchKey = Object.keys(TELUGU_SOURCE_NAME_MAP).find((key) =>
+    source.toLowerCase().includes(key.toLowerCase())
+  );
+  return matchKey ? TELUGU_SOURCE_NAME_MAP[matchKey] : source;
+};
+
 const AP_TELUGU_TERMS = [
   'వ్యవసాయం',
   'వ్యవసాయ',
@@ -511,12 +542,12 @@ const fetchGoogleNewsRss = async (config, lang) => {
   return articles;
 };
 
-const buildArticle = (article) => ({
+const buildArticle = (article, lang = 'en') => ({
   title: article.title,
   summary: article.description || 'No summary available.',
   url: article.url,
   image: article.urlToImage,
-  source: article.source?.name || 'Unknown source',
+  source: localizeSourceName(article.source?.name || 'Unknown source', lang),
   publishedAt: article.publishedAt,
   category: inferCategory(`${article.title ?? ''} ${article.description ?? ''} ${article.content ?? ''}`),
 });
@@ -538,6 +569,7 @@ const maybeTranslateArticle = async (article, lang) => {
     ...article,
     title: await translateIfNeeded(article.title),
     summary: await translateIfNeeded(article.summary),
+    source: localizeSourceName(article.source, lang),
   };
 };
 
@@ -597,7 +629,7 @@ router.get('/headlines', async (req, res) => {
         .filter((article) => isApAgricultureArticle(article))
         .sort(compareByNewestPublishedAt)
         .slice(0, limit)
-        .map((article) => buildArticle(article));
+        .map((article) => buildArticle(article, lang));
 
       const localizedRss = await localizeArticles(rssScoped, lang);
       if (localizedRss.length > 0) {
@@ -616,7 +648,7 @@ router.get('/headlines', async (req, res) => {
           title: item.title || '',
           summary: item.summary || '',
           url: item.url || '',
-          source: item.source || 'AgriNews',
+          source: localizeSourceName(item.source || 'AgriNews', lang),
           publishedAt: new Date().toISOString(),
           category: inferCategory(`${item.title || ''} ${item.summary || ''}`),
         })),
@@ -665,7 +697,7 @@ router.get('/headlines', async (req, res) => {
         .sort((left, right) => right.score - left.score)
         .sort(compareByNewestPublishedAt)
         .slice(0, limit)
-        .map(({ article }) => buildArticle(article));
+        .map(({ article }) => buildArticle(article, lang));
     };
 
     let scored = scoreAndBuild(combined);
@@ -678,7 +710,7 @@ router.get('/headlines', async (req, res) => {
           .filter((article) => isApAgricultureArticle(article))
           .sort(compareByNewestPublishedAt)
           .slice(0, limit)
-          .map((article) => buildArticle(article));
+          .map((article) => buildArticle(article, lang));
       } catch {
         scored = [];
       }
@@ -692,7 +724,7 @@ router.get('/headlines', async (req, res) => {
           title: item.title || '',
           summary: item.summary || '',
           url: item.url || '',
-          source: item.source || 'AgriNews',
+          source: localizeSourceName(item.source || 'AgriNews', lang),
           publishedAt: new Date().toISOString(),
           category: inferCategory(`${item.title || ''} ${item.summary || ''}`),
         })),

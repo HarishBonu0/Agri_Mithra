@@ -5,6 +5,7 @@ import { Bot, Send, Plus, Mic, Volume2, Paperclip, MessageSquare, Sparkles, Tras
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { translations } from "@/lib/translations";
 import {
   handleSendMessage,
   handleVoiceInput,
@@ -56,6 +57,17 @@ const detectVoiceLanguageHint = (text: string): AssistantLanguage | undefined =>
 };
 
 const LOCAL_STORAGE_KEY = (mobile?: string) => `agrimitra-ai-chats-${mobile || "guest"}`;
+
+const DEFAULT_WELCOME_MESSAGES = new Set([
+  translations.en.ai.welcome,
+  translations.te.ai.welcome,
+  "Hello! I can guide you across Crop Assistant, Scheme Finder, and Weather. Ask me anything.",
+]);
+
+const DEFAULT_CHAT_TITLES = new Set([
+  translations.en.ai.newChat,
+  translations.te.ai.newChat,
+]);
 
 const createSession = (title: string, greeting: string): ChatSession => ({
   id: `chat-${Date.now()}`,
@@ -115,6 +127,51 @@ export default function AIAssistant() {
     () => [t("ai.suggestion1"), t("ai.suggestion2"), t("ai.suggestion3")],
     [t]
   );
+
+  // Keep built-in greeting/title localized when users switch languages.
+  useEffect(() => {
+    const localizedWelcome = t("ai.welcome");
+    const localizedNewChat = t("ai.newChat");
+
+    setSessions((prev) => {
+      let changed = false;
+
+      const next = prev.map((session) => {
+        let updated = session;
+
+        if (DEFAULT_CHAT_TITLES.has(session.title) && session.title !== localizedNewChat) {
+          updated = { ...updated, title: localizedNewChat };
+          changed = true;
+        }
+
+        if (!Array.isArray(session.messages) || session.messages.length === 0) {
+          return updated;
+        }
+
+        const first = session.messages[0];
+        const isDefaultGreeting = first.role === "bot" && DEFAULT_WELCOME_MESSAGES.has((first.text || "").trim());
+
+        if (isDefaultGreeting && first.text !== localizedWelcome) {
+          updated = {
+            ...updated,
+            messages: [
+              {
+                ...first,
+                text: localizedWelcome,
+                language: lang === "te" ? "te" : "en",
+              },
+              ...session.messages.slice(1),
+            ],
+          };
+          changed = true;
+        }
+
+        return updated;
+      });
+
+      return changed ? next : prev;
+    });
+  }, [lang, t]);
 
   // ── Load sessions: DB first (if logged in), fallback localStorage ────────────
   useEffect(() => {

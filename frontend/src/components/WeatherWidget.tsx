@@ -3,8 +3,25 @@ import { Sun, Cloud, CloudRain, Wind, Droplets, RefreshCw, MapPin, AlertCircle, 
 import { useI18n } from "@/lib/i18n";
 import { useWeather } from "@/hooks/useWeather";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
+const TELUGU_PLACE_NAME_MAP: Record<string, string> = {
+  "andhra pradesh": "ఆంధ్ర ప్రదేశ్",
+  "telangana": "తెలంగాణ",
+  "hyderabad": "హైదరాబాద్",
+  "vijayawada": "విజయవాడ",
+  "visakhapatnam": "విశాఖపట్నం",
+  "guntur": "గుంటూరు",
+  "warangal": "వరంగల్",
+  "tirupati": "తిరుపతి",
+  "kurnool": "కర్నూలు",
+  "nellore": "నెల్లూరు",
+  "khammam": "ఖమ్మం",
+  "karimnagar": "కరీంనగర్",
+};
+
 export function WeatherWidget() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const {
     weather,
     loading,
@@ -25,12 +42,61 @@ export function WeatherWidget() {
 
   const [locationInput, setLocationInput] = useState("");
   const [showInput, setShowInput] = useState(false);
+  const [displayPlaceName, setDisplayPlaceName] = useState("");
 
   useEffect(() => {
     if (manualCity) {
       setLocationInput(manualCity);
     }
   }, [manualCity]);
+
+  useEffect(() => {
+    let active = true;
+
+    const localizePlaceName = async () => {
+      const rawPlaceName = weather?.name || manualCity || "";
+
+      if (!rawPlaceName) {
+        setDisplayPlaceName("");
+        return;
+      }
+
+      if (lang !== "te" || /[\u0C00-\u0C7F]/.test(rawPlaceName)) {
+        setDisplayPlaceName(rawPlaceName);
+        return;
+      }
+
+      const mapped = TELUGU_PLACE_NAME_MAP[rawPlaceName.trim().toLowerCase()];
+      if (mapped) {
+        setDisplayPlaceName(mapped);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/news/translate?text=${encodeURIComponent(rawPlaceName)}`
+        );
+
+        if (!response.ok) {
+          setDisplayPlaceName(rawPlaceName);
+          return;
+        }
+
+        const payload = await response.json();
+        if (!active) return;
+        setDisplayPlaceName(payload?.translated || rawPlaceName);
+      } catch {
+        if (active) {
+          setDisplayPlaceName(rawPlaceName);
+        }
+      }
+    };
+
+    localizePlaceName();
+    return () => {
+      active = false;
+    };
+  }, [weather?.name, manualCity, lang]);
 
   const handleLocationSubmit = () => {
     if (locationInput.trim()) {
@@ -136,7 +202,7 @@ export function WeatherWidget() {
           <MapPin className="h-3.5 w-3.5" />
           <span>{t("weather.location")}:</span>
           <span className="font-medium text-foreground">
-            {weather?.name || manualCity || t("weather.unknownLocation")}
+            {displayPlaceName || t("weather.unknownLocation")}
           </span>
         </div>
 
