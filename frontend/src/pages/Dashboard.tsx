@@ -67,6 +67,13 @@ const isIrrelevant = (text: string): boolean => {
   return IRRELEVANT_KEYWORDS.some((keyword) => normalized.includes(keyword));
 };
 
+const normalizeExternalUrl = (rawUrl?: string): string => {
+  if (!rawUrl) return "";
+  if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
+  if (rawUrl.startsWith("//")) return `https:${rawUrl}`;
+  return `https://${rawUrl}`;
+};
+
 export default function Dashboard() {
   const { t, lang } = useI18n();
   const { user, logout } = useAuth();
@@ -313,17 +320,41 @@ export default function Dashboard() {
                 <div
                   key={headline.url || `${headline.title}-${index}`}
                   className="group flex items-center gap-4 p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 cursor-pointer"
+                  onClick={() => {
+                    const articleUrl = normalizeExternalUrl(headline.url);
+                    if (articleUrl) window.open(articleUrl, "_blank", "noopener,noreferrer");
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    const articleUrl = normalizeExternalUrl(headline.url);
+                    if (articleUrl) window.open(articleUrl, "_blank", "noopener,noreferrer");
+                  }}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
+                      {(() => {
+                        const articleUrl = normalizeExternalUrl(headline.url);
+                        return (
                       <a
-                        href={headline.url}
+                        href={articleUrl || "#"}
                         target="_blank"
                         rel="noreferrer"
                         className="text-sm font-semibold text-foreground hover:text-primary hover:underline"
+                        onClick={(event) => {
+                          if (!articleUrl) {
+                            event.preventDefault();
+                            return;
+                          }
+                          event.stopPropagation();
+                        }}
                       >
                         {index + 1}. {headline.title}
                       </a>
+                        );
+                      })()}
                       <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition" />
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">{headline.source}</div>

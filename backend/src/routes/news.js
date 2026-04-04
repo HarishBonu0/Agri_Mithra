@@ -317,6 +317,13 @@ const isApAgricultureArticle = (article) => {
   return agriHits >= 1 && !hasNonAgriNoise;
 };
 
+const isGlobalAgricultureArticle = (article) => {
+  const combined = normalize(`${article?.title ?? ''} ${article?.description ?? ''} ${article?.content ?? ''}`);
+  const strongHits = countMatches(combined, STRONG_TERMS);
+  const agriHits = countMatches(combined, AGRI_TERMS);
+  return (strongHits > 0 || agriHits >= 2) && !isIrrelevant(combined);
+};
+
 const getRegionConfig = (region) => {
   const normalized = normalize(region);
   if (normalized === 'ap' || normalized === 'andhra' || normalized === 'telugu') {
@@ -606,6 +613,17 @@ const localizeArticles = async (articles, lang) => {
   return Promise.all(articles.map((article) => maybeTranslateArticle(article, lang)));
 };
 
+const buildScopedRssArticles = (rssArticles, lang, config, limit) => {
+  const scoped = (rssArticles || [])
+    .filter((article) => article?.title && article?.url && article?.publishedAt)
+    .filter((article) => (config.region === 'ap' ? isApAgricultureArticle(article) : isGlobalAgricultureArticle(article)))
+    .sort(compareByNewestPublishedAt)
+    .slice(0, limit)
+    .map((article) => buildArticle(article, lang));
+
+  return scoped;
+};
+
 const compareByNewestPublishedAt = (left, right) => {
   const rightTime = new Date(right.article?.publishedAt || right.publishedAt || 0).getTime();
   const leftTime = new Date(left.article?.publishedAt || left.publishedAt || 0).getTime();
@@ -621,17 +639,12 @@ router.get('/headlines', async (req, res) => {
     const region = String(req.query.region || (lang === 'te' ? 'ap' : 'global')).toLowerCase();
     const config = getRegionConfig(region);
 
-    // For Telugu/AP, prefer domain-focused RSS fallback over generic mock data.
-    if (!apiKey && config.region === 'ap') {
+    // Prefer domain-focused RSS fallback when NewsAPI key is missing.
+    if (!apiKey) {
       const rssArticles = await fetchGoogleNewsRss(config, lang);
-      const rssScoped = rssArticles
-        .filter((article) => article?.title && article?.url && article?.publishedAt)
-        .filter((article) => isApAgricultureArticle(article))
-        .sort(compareByNewestPublishedAt)
-        .slice(0, limit)
-        .map((article) => buildArticle(article, lang));
-
+      const rssScoped = buildScopedRssArticles(rssArticles, lang, config, limit);
       const localizedRss = await localizeArticles(rssScoped, lang);
+
       if (localizedRss.length > 0) {
         return res.json({
           count: localizedRss.length,
@@ -702,15 +715,10 @@ router.get('/headlines', async (req, res) => {
 
     let scored = scoreAndBuild(combined);
 
-    if (config.region === 'ap' && scored.length === 0) {
+    if (scored.length === 0) {
       try {
         const rssArticles = await fetchGoogleNewsRss(config, lang);
-        scored = rssArticles
-          .filter((article) => article?.title && article?.url && article?.publishedAt)
-          .filter((article) => isApAgricultureArticle(article))
-          .sort(compareByNewestPublishedAt)
-          .slice(0, limit)
-          .map((article) => buildArticle(article, lang));
+        scored = buildScopedRssArticles(rssArticles, lang, config, limit);
       } catch {
         scored = [];
       }

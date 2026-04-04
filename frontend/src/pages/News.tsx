@@ -19,6 +19,15 @@ type NewsArticle = {
   category: NewsCategory;
 };
 
+const normalizeExternalUrl = (rawUrl?: string): string => {
+  if (!rawUrl) return "";
+  if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
+  if (rawUrl.startsWith("//")) return `https:${rawUrl}`;
+  return `https://${rawUrl}`;
+};
+
+const getArticleUrl = (article: NewsArticle): string => normalizeExternalUrl(article.url);
+
 const inferCategory = (text: string): NewsCategory => {
   const normalized = text.toLowerCase();
   if (/(policy|government|scheme|subsidy|msp)/.test(normalized)) return "news.policy";
@@ -148,6 +157,18 @@ export default function News() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05, duration: 0.25 }}
             className="group overflow-hidden cursor-pointer border border-white/40 rounded-2xl bg-white/75 backdrop-blur-md shadow-md transition-all md:hover:border-primary/30 md:hover:shadow-lg"
+            onClick={() => {
+              const articleUrl = getArticleUrl(article);
+              if (articleUrl) window.open(articleUrl, "_blank", "noopener,noreferrer");
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              const articleUrl = getArticleUrl(article);
+              if (articleUrl) window.open(articleUrl, "_blank", "noopener,noreferrer");
+            }}
           >
             <div className="p-4 sm:p-5">
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
@@ -160,12 +181,13 @@ export default function News() {
               <p className="text-[11px] text-muted-foreground mt-2 break-words">
                 {article.source || t("news.source_unknown")} • {getRelativeTime(article.publishedAt, t)}
               </p>
-              {article.url && (
+              {getArticleUrl(article) && (
                 <a
-                  href={article.url}
+                  href={getArticleUrl(article)}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-4 text-xs font-semibold text-primary inline-flex items-center gap-1.5 md:hover:scale-[1.05] transition-transform"
+                  onClick={(event) => event.stopPropagation()}
                 >
                   {t("news.read_more")}
                   <ArrowRight className="h-3.5 w-3.5" />

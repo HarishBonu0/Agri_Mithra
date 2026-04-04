@@ -22,7 +22,7 @@ export function TopNavbar() {
 
   return (
     <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
-      <div className="flex items-center gap-3 md:hidden cursor-pointer" onClick={() => navigate("/home")}>
+      <div className="flex items-center gap-3 md:hidden cursor-pointer" onClick={() => navigate("/")}>
         <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
           <span className="text-primary-foreground font-heading font-bold text-xs">AM</span>
         </div>

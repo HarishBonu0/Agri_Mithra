@@ -52,10 +52,20 @@ const copy = {
 };
 
 export default function Home() {
-  const { lang, setLang } = useI18n();
-  const { isLoggedIn } = useAuth();
+  const { lang, setLang, t: tr } = useI18n();
+  const { isLoggedIn, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const t = copy[lang];
+  const homeCopy = copy[lang];
+
+  const navItems = [
+    { key: "nav.dashboard", path: "/dashboard", gated: false },
+    { key: "nav.assistant", path: "/assistant", gated: true },
+    { key: "nav.schemes", path: "/schemes", gated: true },
+    { key: "nav.news", path: "/news", gated: true },
+    { key: "nav.aiAssistant", path: "/ai-assistant", gated: true },
+    ...(isAdmin ? [{ key: "nav.admin", path: "/admin", gated: true }] : []),
+    { key: isLoggedIn ? "profile.logout" : "btn.login", path: isLoggedIn ? "/dashboard" : "/login", gated: false },
+  ];
 
   const handleModuleClick = (path) => {
     if (!isLoggedIn) {
@@ -67,29 +77,91 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5fff6] via-[#f8fbf7] to-[#eef7f0] text-foreground">
+      <header className="sticky top-0 z-40 border-b border-white/50 bg-white/65 backdrop-blur-xl">
+        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between gap-4">
+          <button onClick={() => navigate("/")} className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-sm">
+              <span className="text-primary-foreground font-heading font-bold text-sm">AM</span>
+            </div>
+            <span className="font-heading font-semibold text-foreground text-base sm:text-lg">{tr("brand.name")}</span>
+          </button>
+
+          <nav className="hidden lg:flex items-center gap-1.5 rounded-full border border-white/70 bg-white/55 px-2 py-1">
+            {navItems.map((item) => (
+              <button
+                key={item.path}
+                onClick={() => (item.gated && !isLoggedIn ? navigate("/login") : navigate(item.path))}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-foreground/85 hover:text-foreground hover:bg-white transition"
+              >
+                {tr(item.key)}
+              </button>
+            ))}
+          </nav>
+
+          <div className="inline-flex items-center rounded-full border border-primary/20 bg-white/70 backdrop-blur p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setLang("en")}
+              className={`rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-300 ${
+                lang === "en"
+                  ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-md"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {homeCopy.english}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang("te")}
+              className={`rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-300 ${
+                lang === "te"
+                  ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-md"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {homeCopy.telugu}
+            </button>
+          </div>
+        </div>
+
+        <div className="lg:hidden border-t border-white/60 bg-white/55 px-3 py-2 overflow-x-auto">
+          <div className="mx-auto max-w-6xl flex items-center gap-2">
+            {navItems.map((item) => (
+              <button
+                key={`mobile-${item.path}`}
+                onClick={() => (item.gated && !isLoggedIn ? navigate("/login") : navigate(item.path))}
+                className="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium text-foreground/85 bg-white/70 border border-white/80"
+              >
+                {tr(item.key)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
       <main className="mx-auto max-w-6xl px-4 py-8 md:py-12">
         {/* Hero Section with Animated Component */}
         <section className="rounded-3xl border border-white/50 bg-white/70 backdrop-blur-lg p-7 shadow-md md:p-10 hover:shadow-lg transition duration-300 mb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div>
               <h1 className="font-heading text-5xl font-bold tracking-tight md:text-6xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                {t.heroTitle}
+                {homeCopy.heroTitle}
               </h1>
               <p className="mt-4 max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed">
-                {t.heroSubtitle}
+                {homeCopy.heroSubtitle}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <button
                   onClick={() => navigate(isLoggedIn ? "/dashboard" : "/login")}
                   className="inline-flex items-center rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95"
                 >
-                  {t.getStarted}
+                  {homeCopy.getStarted}
                 </button>
                 <button
                   onClick={() => navigate("/dashboard")}
                   className="inline-flex items-center rounded-2xl border-2 border-primary/30 bg-white/50 backdrop-blur px-6 py-3.5 text-sm font-semibold text-primary transition-all duration-300 hover:bg-white hover:border-primary hover:shadow-lg hover:scale-105 active:scale-95"
                 >
-                  {t.tryDemo}
+                  {homeCopy.tryDemo}
                 </button>
               </div>
             </div>
@@ -101,12 +173,12 @@ export default function Home() {
 
         {/* Features Section */}
         <section className="mb-10 animate-slide-up">
-          <h2 className="mb-6 font-heading text-3xl font-bold">{t.featuresTitle}</h2>
+          <h2 className="mb-6 font-heading text-3xl font-bold">{homeCopy.featuresTitle}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              { icon: ScanLine, title: t.cropAssistant, text: t.cropText, path: "/assistant" },
-              { icon: Landmark, title: t.schemeFinder, text: t.schemeText, path: "/schemes" },
-              { icon: MessageSquareText, title: t.newsSummarizer, text: t.newsText, path: "/news" },
+              { icon: ScanLine, title: homeCopy.cropAssistant, text: homeCopy.cropText, path: "/assistant" },
+              { icon: Landmark, title: homeCopy.schemeFinder, text: homeCopy.schemeText, path: "/schemes" },
+              { icon: MessageSquareText, title: homeCopy.newsSummarizer, text: homeCopy.newsText, path: "/news" },
             ].map((feature, i) => (
               <button
                 key={i}
@@ -127,8 +199,8 @@ export default function Home() {
         <section className="mb-10 animate-slide-up rounded-3xl border border-white/50 bg-white/70 backdrop-blur-lg p-6 md:p-8 hover:shadow-lg transition duration-300">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="font-heading text-2xl font-semibold">{t.languageTitle}</h2>
-              <p className="mt-2 text-muted-foreground">{t.languageText}</p>
+              <h2 className="font-heading text-2xl font-semibold">{homeCopy.languageTitle}</h2>
+              <p className="mt-2 text-muted-foreground">{homeCopy.languageText}</p>
             </div>
             <div className="inline-flex items-center rounded-full border border-primary/20 bg-white/50 backdrop-blur p-1 gap-1">
               <button
@@ -140,7 +212,7 @@ export default function Home() {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {t.english}
+                {homeCopy.english}
               </button>
               <button
                 type="button"
@@ -151,7 +223,7 @@ export default function Home() {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {t.telugu}
+                {homeCopy.telugu}
               </button>
             </div>
           </div>
@@ -159,12 +231,12 @@ export default function Home() {
 
         {/* Benefits Section */}
         <section className="mb-6 animate-slide-up">
-          <h2 className="mb-6 font-heading text-3xl font-bold">{t.benefitsTitle}</h2>
+          <h2 className="mb-6 font-heading text-3xl font-bold">{homeCopy.benefitsTitle}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              { icon: Sprout, text: t.b1 },
-              { icon: ScrollText, text: t.b2 },
-              { icon: Newspaper, text: t.b3 },
+              { icon: Sprout, text: homeCopy.b1 },
+              { icon: ScrollText, text: homeCopy.b2 },
+              { icon: Newspaper, text: homeCopy.b3 },
             ].map((benefit, i) => (
               <div
                 key={i}
@@ -182,7 +254,7 @@ export default function Home() {
       <footer className="border-t border-white/40 bg-white/50 backdrop-blur px-4 py-6 text-center text-sm text-muted-foreground">
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-2">
           <Languages className="h-4 w-4" />
-          <span>{t.footer}</span>
+          <span>{homeCopy.footer}</span>
         </div>
       </footer>
     </div>
