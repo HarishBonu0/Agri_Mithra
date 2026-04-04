@@ -435,8 +435,16 @@ const fetchArticlesForDomains = async (apiKey, config) => {
 
     const domainList = encodeURIComponent(domainGroup.join(','));
     const url = `https://newsapi.org/v2/everything?q=${query}&domains=${domainList}&searchIn=title,description${languageQuery}&sortBy=publishedAt&pageSize=100&apiKey=${apiKey}`;
-    const payload = await fetchNewsApi(url);
-    articles.push(...(payload.articles ?? []));
+    try {
+      const payload = await fetchNewsApi(url);
+      articles.push(...(payload.articles ?? []));
+    } catch (error) {
+      // Avoid hard-failing the endpoint when NewsAPI quota is exceeded.
+      // The caller can still use Google News RSS fallback for AP/Telugu.
+      if (String(error?.message || '').includes('status 429')) {
+        break;
+      }
+    }
   }
 
   return articles;
@@ -626,13 +634,17 @@ router.get('/headlines', async (req, res) => {
     let scored = scoreAndBuild(combined);
 
     if (config.region === 'ap' && scored.length === 0) {
-      const rssArticles = await fetchGoogleNewsRss(config, lang);
-      scored = rssArticles
-        .filter((article) => article?.title && article?.url && article?.publishedAt)
-        .filter((article) => isApAgricultureArticle(article))
-        .sort(compareByNewestPublishedAt)
-        .slice(0, limit)
-        .map((article) => buildArticle(article));
+      try {
+        const rssArticles = await fetchGoogleNewsRss(config, lang);
+        scored = rssArticles
+          .filter((article) => article?.title && article?.url && article?.publishedAt)
+          .filter((article) => isApAgricultureArticle(article))
+          .sort(compareByNewestPublishedAt)
+          .slice(0, limit)
+          .map((article) => buildArticle(article));
+      } catch {
+        scored = [];
+      }
     }
 
     const localizedArticles = await localizeArticles(scored, lang);

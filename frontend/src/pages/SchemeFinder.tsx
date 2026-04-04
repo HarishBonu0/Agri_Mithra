@@ -5,7 +5,7 @@ import { Sprout, Loader2, AlertCircle } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 export default function SchemeFinder() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -76,12 +76,12 @@ export default function SchemeFinder() {
   };
 
   const states = [
-    "Andhra Pradesh",
-    "Telangana",
-    "Karnataka",
-    "Tamil Nadu",
-    "Maharashtra",
-    "Other",
+    { value: "Andhra Pradesh", label: lang === "te" ? "ఆంధ్ర ప్రదేశ్" : "Andhra Pradesh" },
+    { value: "Telangana", label: lang === "te" ? "తెలంగాణ" : "Telangana" },
+    { value: "Karnataka", label: lang === "te" ? "కర్ణాటక" : "Karnataka" },
+    { value: "Tamil Nadu", label: lang === "te" ? "తమిళనాడు" : "Tamil Nadu" },
+    { value: "Maharashtra", label: lang === "te" ? "మహారాష్ట్ర" : "Maharashtra" },
+    { value: "Other", label: lang === "te" ? "ఇతర" : "Other" },
   ];
 
   return (
@@ -124,8 +124,8 @@ export default function SchemeFinder() {
               className="w-full rounded-2xl border border-border bg-background px-5 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             >
               {states.map((state) => (
-                <option key={state} value={state}>
-                  {state}
+                <option key={state.value} value={state.value}>
+                  {state.label}
                 </option>
               ))}
             </select>
