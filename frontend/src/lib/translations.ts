@@ -11,6 +11,7 @@ export const translations = {
       schemes: "Scheme Finder",
       news: "News",
       aiAssistant: "AI Assistant",
+      admin: "Admin",
     },
     search: {
       placeholder: "Search...",
@@ -340,6 +341,7 @@ export const translations = {
       schemes: "పథకాల శోధన",
       news: "వార్తలు",
       aiAssistant: "AI సహాయకుడు",
+      admin: "అడ్మిన్",
     },
     search: {
       placeholder: "శోధించండి...",

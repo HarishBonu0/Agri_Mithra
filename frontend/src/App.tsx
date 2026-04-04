@@ -17,6 +17,7 @@ import News from "./pages/News";
 import AIAssistant from "./pages/AIAssistant";
 import NotFound from "./pages/NotFound";
 import SchemeResults from "./pages/SchemeResults";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -83,6 +84,14 @@ const App = () => (
                 element={
                   <AppLayout>
                     <AIAssistant />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <AppLayout>
+                    <AdminDashboard />
                   </AppLayout>
                 }
               />

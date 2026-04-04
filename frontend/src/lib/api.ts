@@ -33,19 +33,19 @@ export const api = {
 
   auth: {
     signup: (data: { name: string; phone: string; password: string }) =>
-      request<{ success: boolean; data: { token: string; user: { id: string; name: string; phone: string } } }>("/api/auth/signup", {
+      request<{ success: boolean; data: { token: string; user: { id: string; name: string; phone: string; isAdmin?: boolean } } }>("/api/auth/signup", {
         method: "POST",
         body: data,
       }),
 
     login: (data: { phone: string; password: string }) =>
-      request<{ success: boolean; data: { token: string; user: { id: string; name: string; phone: string } } }>("/api/auth/login", {
+      request<{ success: boolean; data: { token: string; user: { id: string; name: string; phone: string; isAdmin?: boolean } } }>("/api/auth/login", {
         method: "POST",
         body: data,
       }),
 
     me: (token: string) =>
-      request<{ success: boolean; data: { user: { id: string; name: string; phone: string } } }>("/api/auth/me", {
+      request<{ success: boolean; data: { user: { id: string; name: string; phone: string; isAdmin?: boolean } } }>("/api/auth/me", {
         token,
       }),
   },

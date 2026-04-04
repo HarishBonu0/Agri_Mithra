@@ -1,7 +1,8 @@
-import { LayoutDashboard, Scan, MessageSquare, Newspaper, Bot } from "lucide-react";
+import { LayoutDashboard, Scan, MessageSquare, Newspaper, Bot, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useI18n } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth";
 
 const navItems = [
   { key: "nav.dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -13,7 +14,9 @@ const navItems = [
 
 export function AppSidebar() {
   const { t } = useI18n();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const items = isAdmin ? [...navItems, { key: "nav.admin", url: "/admin", icon: Shield }] : navItems;
 
   return (
     <aside className="hidden md:flex flex-col w-64 border-r border-border bg-sidebar min-h-screen p-4 gap-1">
@@ -25,7 +28,7 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex flex-col gap-1">
-        {navItems.map((item) => (
+        {items.map((item) => (
           <NavLink
             key={item.url}
             to={item.url}

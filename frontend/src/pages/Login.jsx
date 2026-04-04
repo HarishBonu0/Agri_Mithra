@@ -36,8 +36,8 @@ export default function Login() {
 
     setIsSubmitting(true);
     try {
-      await login(form.mobile, form.password);
-      navigate("/dashboard");
+      const loggedInUser = await login(form.mobile, form.password);
+      navigate(loggedInUser?.isAdmin ? "/admin" : "/dashboard");
     } catch (error) {
       setErrors({
         mobile: "",

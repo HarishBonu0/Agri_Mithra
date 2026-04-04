@@ -15,7 +15,7 @@ const protect = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { userId: decoded.userId };
+    req.user = { userId: decoded.userId, isAdmin: Boolean(decoded.isAdmin) };
     next();
   } catch (err) {
     const message = err.name === 'TokenExpiredError'

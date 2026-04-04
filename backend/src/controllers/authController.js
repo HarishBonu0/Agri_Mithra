@@ -2,8 +2,16 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { config } from '../config/env.js';
 
-const generateToken = (userId) =>
-  jwt.sign({ userId }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+const ADMIN_PHONE = '9182392500';
+const ADMIN_PASSWORD = 'harishbonu';
+
+const normalizePhone = (phone = '') => phone.replace(/^\+91/, '').trim();
+
+const isAdminCredentials = (phone, password) =>
+  normalizePhone(phone) === ADMIN_PHONE && password === ADMIN_PASSWORD;
+
+const generateToken = (userId, isAdmin = false) =>
+  jwt.sign({ userId, isAdmin }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 
 const PHONE_REGEX = /^(\+91)?[6-9]\d{9}$/;
 
@@ -44,13 +52,13 @@ export const signup = async (req, res) => {
     }
 
     const user = await User.create({ name: name.trim(), phone: phone.trim(), password });
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, false);
 
     return res.status(201).json({
       success: true,
       message: 'Account created successfully',
       requestId: req.requestId,
-      data: { token, user: { id: user._id, name: user.name, phone: user.phone } },
+      data: { token, user: { id: user._id, name: user.name, phone: user.phone, isAdmin: false } },
     });
   } catch (err) {
     if (err.name === 'ValidationError') {
@@ -78,8 +86,24 @@ export const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ phone: phone.trim() }).select('+password');
-    if (!user || !(await user.comparePassword(password))) {
+    const normalizedInputPhone = normalizePhone(phone);
+
+    let user = await User.findOne({
+      phone: { $in: [phone.trim(), normalizedInputPhone, `+91${normalizedInputPhone}`] },
+    }).select('+password');
+
+    const adminLogin = isAdminCredentials(phone, password);
+
+    if (adminLogin && !user) {
+      user = await User.create({
+        name: 'Harish Admin',
+        phone: ADMIN_PHONE,
+        password: ADMIN_PASSWORD,
+      });
+      user = await User.findById(user._id).select('+password');
+    }
+
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: 'Invalid phone number or password',
@@ -87,12 +111,20 @@ export const login = async (req, res) => {
       });
     }
 
-    const token = generateToken(user._id);
+    if (!adminLogin && !(await user.comparePassword(password))) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid phone number or password',
+        requestId: req.requestId,
+      });
+    }
+
+    const token = generateToken(user._id, adminLogin);
     return res.json({
       success: true,
       message: 'Login successful',
       requestId: req.requestId,
-      data: { token, user: { id: user._id, name: user.name, phone: user.phone } },
+      data: { token, user: { id: user._id, name: user.name, phone: user.phone, isAdmin: adminLogin } },
     });
   } catch (err) {
     console.error('[Auth] Login error:', err.message);
@@ -110,7 +142,7 @@ export const me = async (req, res) => {
     return res.json({
       success: true,
       requestId: req.requestId,
-      data: { user: { id: user._id, name: user.name, phone: user.phone } },
+      data: { user: { id: user._id, name: user.name, phone: user.phone, isAdmin: Boolean(req.user?.isAdmin) } },
     });
   } catch (err) {
     console.error('[Auth] Me error:', err.message);

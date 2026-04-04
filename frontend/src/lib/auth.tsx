@@ -6,23 +6,26 @@ interface User {
   name: string;
   phone: string;
   mobile: string;
+  isAdmin: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoggedIn: boolean;
+  isAdmin: boolean;
   token: string | null;
   signup: (name: string, mobile: string, password: string) => Promise<void>;
-  login: (mobile: string, password: string) => Promise<void>;
+  login: (mobile: string, password: string) => Promise<User>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoggedIn: false,
+  isAdmin: false,
   token: null,
   signup: async () => {},
-  login: async () => {},
+  login: async () => ({ id: "", name: "", phone: "", mobile: "", isAdmin: false }),
   logout: () => {},
 });
 
@@ -32,11 +35,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  const normalizeUser = (raw: { id: string; name: string; phone: string }): User => ({
+  const normalizeUser = (raw: { id: string; name: string; phone: string; isAdmin?: boolean }): User => ({
     id: raw.id,
     name: raw.name,
     phone: raw.phone,
     mobile: raw.phone,
+    isAdmin: Boolean(raw.isAdmin),
   });
 
   // Load token and resolve session from backend
@@ -73,9 +77,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password,
     });
 
+    const normalizedUser = normalizeUser(response.data.user);
     localStorage.setItem(TOKEN_KEY, response.data.token);
     setToken(response.data.token);
-    setUser(normalizeUser(response.data.user));
+    setUser(normalizedUser);
+    return normalizedUser;
   };
 
   const logout = () => {
@@ -89,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         isLoggedIn: !!user && !!token,
+        isAdmin: Boolean(user?.isAdmin),
         token,
         signup,
         login,

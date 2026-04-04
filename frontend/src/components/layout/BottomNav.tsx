@@ -1,6 +1,7 @@
-import { LayoutDashboard, Scan, MessageSquare, Newspaper, Bot } from "lucide-react";
+import { LayoutDashboard, Scan, MessageSquare, Newspaper, Bot, Shield } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useI18n } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth";
 
 const navItems = [
   { key: "nav.dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -12,11 +13,13 @@ const navItems = [
 
 export function BottomNav() {
   const { t } = useI18n();
+  const { isAdmin } = useAuth();
+  const items = isAdmin ? [...navItems, { key: "nav.admin", url: "/admin", icon: Shield }] : navItems;
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/90 backdrop-blur-md border-t border-border">
       <div className="flex items-center justify-around py-2">
-        {navItems.map((item) => (
+        {items.map((item) => (
           <NavLink
             key={item.url}
             to={item.url}
