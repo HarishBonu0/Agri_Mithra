@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 
 const categories = ["news.all", "news.crops", "news.market", "news.policy", "news.technology"];
-const API_BASE_URL = "http://127.0.0.1:5000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 type NewsCategory = "news.crops" | "news.market" | "news.policy" | "news.technology";
 
@@ -27,17 +27,17 @@ const inferCategory = (text: string): NewsCategory => {
   return "news.crops";
 };
 
-const getRelativeTime = (isoDate: string): string => {
+const getRelativeTime = (isoDate: string, t: (key: string, values?: Record<string, string | number>) => string): string => {
   const publishedMs = new Date(isoDate).getTime();
-  if (Number.isNaN(publishedMs)) return "recent";
+  if (Number.isNaN(publishedMs)) return t("news.time_unknown");
 
   const diffMs = Date.now() - publishedMs;
   const minutes = Math.max(1, Math.floor(diffMs / 60000));
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return t("news.min_ago", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
+  if (hours < 24) return t("news.hr_ago", { count: hours });
   const days = Math.floor(hours / 24);
-  return `${days} day${days > 1 ? "s" : ""} ago`;
+  return days > 1 ? t("news.days_ago", { count: days }) : t("news.day_ago", { count: days });
 };
 
 export default function News() {
@@ -100,13 +100,13 @@ export default function News() {
     return (
       <div className="max-w-5xl mx-auto flex flex-col items-center justify-center h-[300px]">
         <div className="text-center">
-          <p className="text-lg font-semibold text-foreground mb-4">Login Required</p>
-          <p className="text-muted-foreground mb-6">Please login to access News</p>
+          <p className="text-lg font-semibold text-foreground mb-4">{t("auth.login_required")}</p>
+          <p className="text-muted-foreground mb-6">{t("news.login_prompt")}</p>
           <button
             onClick={() => navigate("/login")}
             className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition"
           >
-            Go to Login
+            {t("auth.go_to_login")}
           </button>
         </div>
       </div>
@@ -134,10 +134,10 @@ export default function News() {
         ))}
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground">Loading agriculture news...</p>}
+      {loading && <p className="text-sm text-muted-foreground">{t("news.loading")}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!loading && !error && filtered.length === 0 && (
-        <p className="text-sm text-muted-foreground">No agriculture news found for this category.</p>
+        <p className="text-sm text-muted-foreground">{t("news.no_results")}</p>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -158,7 +158,7 @@ export default function News() {
               </h3>
               <p className="text-xs text-muted-foreground mt-1.5 line-clamp-3">{article.summary}</p>
               <p className="text-[11px] text-muted-foreground mt-2">
-                {article.source || "AgriNews"} • {getRelativeTime(article.publishedAt)}
+                {article.source || t("news.source_unknown")} • {getRelativeTime(article.publishedAt, t)}
               </p>
               {article.url && (
                 <a

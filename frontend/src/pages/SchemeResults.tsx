@@ -122,6 +122,20 @@ export default function SchemeResults() {
 
   const landInHectares = Number(result.profile.landHectares || 0);
   const landInAcres = landInHectares / 0.404686;
+  const localizedState =
+    result.profile.state === "Andhra Pradesh"
+      ? t("states.andhra_pradesh")
+      : result.profile.state === "Telangana"
+        ? t("states.telangana")
+        : result.profile.state === "Karnataka"
+          ? t("states.karnataka")
+          : result.profile.state === "Tamil Nadu"
+            ? t("states.tamil_nadu")
+            : result.profile.state === "Maharashtra"
+              ? t("states.maharashtra")
+              : result.profile.state === "Other"
+                ? t("states.other")
+                : result.profile.state;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-4">
@@ -138,7 +152,7 @@ export default function SchemeResults() {
           {t("schemes.title")}
         </h1>
         <p className="text-muted-foreground">
-          {t("schemes.state")}: {result.profile.state} | {t("schemes.land")}:{" "}
+          {t("schemes.state")}: {localizedState} | {t("schemes.land")}:{" "}
           {landInHectares.toFixed(2)} {t("schemes.unit_hectares")} ({landInAcres.toFixed(2)} {t("schemes.unit_acres")}) |{" "}
           {enteredAnnualIncome
             ? `₹${Number(enteredAnnualIncome.replace(/,/g, "")).toLocaleString("en-IN")}`
@@ -154,8 +168,7 @@ export default function SchemeResults() {
             {result.eligibleCount > 0 ? t("schemes.schemes_found") : t("schemes.no_schemes")}
           </p>
           <p className="text-sm text-muted-foreground mt-2">
-            {result.eligibleCount} scheme{result.eligibleCount !== 1 ? "s" : ""}{" "}
-            {t("schemes.found")}
+            {result.eligibleCount} {t("schemes.found")}
           </p>
         </div>
 

@@ -274,19 +274,42 @@ export const mapTransliterationToLanguage = (
   return fallback;
 };
 
+const detectLanguageFromText = (text: string): AssistantLanguage | null => {
+  if (!text) return null;
+  // Telugu Unicode block: 0C00–0C7F
+  if (/[\u0C00-\u0C7F]/.test(text)) return "te";
+  // Hindi/Devanagari Unicode block: 0900–097F
+  if (/[\u0900-\u097F]/.test(text)) return "hi";
+  // Tamil Unicode block: 0B80–0BFF
+  if (/[\u0B80-\u0BFF]/.test(text)) return "ta";
+  // Kannada Unicode block: 0C80–0CFF
+  if (/[\u0C80-\u0CFF]/.test(text)) return "kn";
+  // Telugu transliteration common words
+  if (/(nenu|meeru|panta|raithu|vari|mira|biyyam|nela)\b/i.test(text)) return "te";
+  // Hindi transliteration common words
+  if (/(kheti|fasal|beej|mitti|paani|khet|ped)\b/i.test(text)) return "hi";
+  return null;
+};
+
 export const normalizeLanguagePreference = (
   appLang: Lang,
   userText: string,
   explicitPreference?: string
 ): AssistantLanguage => {
+  // Explicit override wins
   const requested = (explicitPreference || "").toLowerCase();
-  // Strictly respect selected app language.
-  const selected: AssistantLanguage = appLang === "te" ? "te" : "en";
-
   if (requested === "te" || requested === "telugu") return "te";
+  if (requested === "hi" || requested === "hindi") return "hi";
+  if (requested === "ta" || requested === "tamil") return "ta";
+  if (requested === "kn" || requested === "kannada") return "kn";
   if (requested === "en" || requested === "english") return "en";
 
-  return selected;
+  // Auto-detect from the actual text (most reliable)
+  const detected = detectLanguageFromText(userText);
+  if (detected) return detected;
+
+  // Fall back to app UI language
+  return appLang === "te" ? "te" : "en";
 };
 
 export const classifyAgricultureIntent = (input: string): AgricultureIntent => {
@@ -401,6 +424,30 @@ const sanitizeText = (value: string): string =>
     .replace(/\*/g, "")
     .trim();
 
+const EN_TO_TE_DIGIT_MAP: Record<string, string> = {
+  "0": "౦",
+  "1": "౧",
+  "2": "౨",
+  "3": "౩",
+  "4": "౪",
+  "5": "౫",
+  "6": "౬",
+  "7": "౭",
+  "8": "౮",
+  "9": "౯",
+};
+
+const normalizeForLanguage = (line: string, language: AssistantLanguage): string => {
+  const text = sanitizeText(line);
+  if (language !== "te") return text;
+
+  return text
+    .replace(/\bDay\b/gi, "రోజు")
+    .replace(/\bStep\b/gi, "దశ")
+    .replace(/\bWarning\b/gi, "హెచ్చరిక")
+    .replace(/[0-9]/g, (digit) => EN_TO_TE_DIGIT_MAP[digit] || digit);
+};
+
 const containsEnglishLetters = (value: string): boolean => /[A-Za-z]/.test(value);
 
 const teluguSafeLine = (line: string): string => {
@@ -408,36 +455,53 @@ const teluguSafeLine = (line: string): string => {
   return "దయచేసి పంటను గమనించి ఈ రోజు జాగ్రత్తగా చర్యలు తీసుకోండి.";
 };
 
-const buildConciseFarmerMessage = (
+const buildFullFarmerMessage = (
   sections: FarmerAdviceSections,
   language: AssistantLanguage
 ): string => {
-  const hasValidAnswer =
-    (sections.whatToDoNow && sections.whatToDoNow.length > 0) ||
-    (sections.next7DaysPlan && sections.next7DaysPlan.length > 0);
+  const titles = LOCALIZED_SECTION_TITLES[language] || LOCALIZED_SECTION_TITLES.en;
+  const parts: string[] = [];
 
-  if (sections.confidenceLevel === "Low" && !hasValidAnswer) {
-    const followUp = sanitizeText(sections.oneNextBestQuestion || (language === "te"
-      ? "మీరు ఏ పంట గురించి అడుగుతున్నారు?"
-      : "Which crop are you referring to?"));
-    return language === "te" ? `స్పష్టత కావాలి\n✔ ${teluguSafeLine(followUp)}` : `Need more detail\n✔ ${followUp}`;
+  // Summary (always first)
+  if (sections.quickSummary) {
+    parts.push(normalizeForLanguage(sections.quickSummary, language));
   }
 
-  const actionLines = [
-    ...sections.whatToDoNow.slice(0, 2),
-    sections.warningSigns[0] || sections.oneNextBestQuestion,
-  ].map((line) => sanitizeText(line)).filter(Boolean);
+  // Why this advice
+  if (sections.whyThisAdvice && sections.whyThisAdvice.trim().length > 3) {
+    parts.push(`\n${titles.whyThisAdvice}:\n${normalizeForLanguage(sections.whyThisAdvice, language)}`);
+  }
 
-  const heading = language === "te" ? "త్వరిత సలహా" : "Quick Advice";
-  const bullets = actionLines
-    .slice(0, 3)
-    .map((line) => {
-      const safeLine = language === "te" ? teluguSafeLine(line) : line;
-      return `✔ ${safeLine}`;
-    })
-    .join("\n");
+  // What to do now — ALL steps, not truncated
+  if (sections.whatToDoNow && sections.whatToDoNow.length > 0) {
+    const steps = sections.whatToDoNow
+      .map((s, i) => `${i + 1}. ${normalizeForLanguage(s, language)}`)
+      .join("\n");
+    parts.push(`\n${titles.whatToDoNow}:\n${steps}`);
+  }
 
-  return `${heading}\n${bullets}`;
+  // 7-day plan
+  if (sections.next7DaysPlan && sections.next7DaysPlan.length > 0) {
+    const plan = sections.next7DaysPlan
+      .map((s) => `• ${normalizeForLanguage(s, language)}`)
+      .join("\n");
+    parts.push(`\n${titles.next7DaysPlan}:\n${plan}`);
+  }
+
+  // Warning signs — ALL of them
+  if (sections.warningSigns && sections.warningSigns.length > 0) {
+    const warnings = sections.warningSigns
+      .map((s) => `⚠ ${normalizeForLanguage(s, language)}`)
+      .join("\n");
+    parts.push(`\n${titles.warningSigns}:\n${warnings}`);
+  }
+
+  // Follow-up question
+  if (sections.oneNextBestQuestion && sections.oneNextBestQuestion.trim().length > 3) {
+    parts.push(`\n💬 ${normalizeForLanguage(sections.oneNextBestQuestion, language)}`);
+  }
+
+  return parts.join("").trim();
 };
 
 export const buildAgriculturePrompt = (payload: {
@@ -555,21 +619,14 @@ export const callAIAPI = async (payload: {
   previousQuestion?: string;
   previousResponse?: string;
   signal?: AbortSignal;
+  token?: string;
+  history?: Array<{ role: "user" | "bot"; text: string }>;
 }): Promise<FarmerAdviceSections> => {
-  const prompt = buildAgriculturePrompt({
-    language: payload.language,
-    analysis: payload.analysis,
-    weatherHint: payload.weatherHint,
-    fileContext: payload.fileContext,
-    userMessage: payload.message,
-    actionMode: payload.actionMode,
-    repeatCount: payload.repeatCount,
-    previousQuestion: payload.previousQuestion,
-    previousResponse: payload.previousResponse,
-  });
-
   const fallbackQuestion =
     payload.analysis.clarifyingQuestions[0] || "What crop and growth stage should I consider?";
+
+  const authHeaders: Record<string, string> = {};
+  if (payload.token) authHeaders["Authorization"] = `Bearer ${payload.token}`;
 
   try {
     let response: Response;
@@ -579,25 +636,26 @@ export const callAIAPI = async (payload: {
       form.append("image", payload.file);
       form.append("message", payload.message);
       form.append("language", payload.language);
-      form.append("prompt", prompt);
-      form.append("analysis", JSON.stringify(payload.analysis));
       if (payload.weatherHint) form.append("weatherHint", payload.weatherHint);
+      if (payload.history && payload.history.length > 0) {
+        form.append("history", JSON.stringify(payload.history));
+      }
 
       response = await fetch(`${payload.apiBaseUrl}/api/ai-assistant/chat`, {
         method: "POST",
+        headers: authHeaders,
         body: form,
         signal: payload.signal,
       });
     } else {
       response = await fetch(`${payload.apiBaseUrl}/api/ai-assistant/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
           message: payload.message,
           language: payload.language,
-          prompt,
-          analysis: payload.analysis,
           weatherHint: payload.weatherHint,
+          history: payload.history || [],
         }),
         signal: payload.signal,
       });
@@ -608,18 +666,8 @@ export const callAIAPI = async (payload: {
     }
 
     const data = await response.json();
-    const formatted = formatFarmerResponse(data?.data, fallbackQuestion, payload.language);
-
-    // Guarantee a useful answer for paddy queries even when backend returns generic fallback text.
-    if (isPaddyQuery(payload.message) && (formatted.confidenceLevel === "Low" || isGenericFallbackResponse(formatted))) {
-      return getDirectPaddyGuidance(payload.language, payload.analysis);
-    }
-
-    return formatted;
+    return formatFarmerResponse(data?.data, fallbackQuestion, payload.language);
   } catch {
-    if (isPaddyQuery(payload.message)) {
-      return getDirectPaddyGuidance(payload.language, payload.analysis);
-    }
     return formatFarmerResponse(undefined, fallbackQuestion, payload.language);
   }
 };
@@ -677,7 +725,54 @@ let availableVoices: SpeechSynthesisVoice[] = [];
 const loadVoices = (): void => {
   if (!("speechSynthesis" in window)) return;
   availableVoices = window.speechSynthesis.getVoices();
-  console.log("[TTS] available voices:", availableVoices.map((v) => `${v.name} (${v.lang})`));
+};
+
+/**
+ * Prepare text for speech output.
+ *
+ * For Indian-script languages (te/hi/ta/kn):
+ *  - Remove all visual/formatting symbols and list prefixes
+ *  - Drop lines that are predominantly English (chemical names, "Day 1-2:", headers)
+ *    because no Indian-language TTS engine can pronounce them and they break playback
+ *  - Join surviving lines with ". " for natural pausing
+ *
+ * For English: just strip symbols and normalize whitespace.
+ */
+const cleanForTts = (text: string, language: AssistantLanguage): string => {
+  if (!text) return "";
+
+  // Strip formatting symbols and numbered list prefixes in one pass
+  let cleaned = text
+    .replace(/[•⚠💬✔*#`_~]/g, " ")
+    .replace(/^\d+\.\s*/gm, "")
+    .replace(/^[•\-]\s*/gm, "");
+
+  const isIndian = language === "te" || language === "hi" || language === "ta" || language === "kn";
+
+  if (isIndian) {
+    const lines = cleaned.split(/\n+/);
+    const filtered = lines
+      .map((l) => l.trim())
+      .filter((line) => {
+        if (!line || line.length < 2) return false;
+        // Count only letter characters (ignore digits, spaces, punctuation)
+        const asciiLetters = (line.match(/[A-Za-z]/g) || []).length;
+        const nativeLetters = (line.match(/[\u0900-\u097F\u0C00-\u0C7F\u0B80-\u0BFF\u0C80-\u0CFF]/g) || []).length;
+        const totalLetters = asciiLetters + nativeLetters;
+        // Keep the line only if native script makes up at least 40% of letters
+        return totalLetters > 0 && nativeLetters / totalLetters >= 0.4;
+      });
+
+    cleaned = filtered.join(". ");
+  }
+
+  // Common cleanup for all languages
+  return cleaned
+    .replace(/:\s*/g, ". ")      // colon → natural pause
+    .replace(/\n+/g, ". ")       // newline → pause
+    .replace(/\s+/g, " ")
+    .replace(/(\.\s*){2,}/g, ". ") // collapse repeated dots
+    .trim();
 };
 
 if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -685,68 +780,103 @@ if (typeof window !== "undefined" && "speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = loadVoices;
 }
 
+/** Split text into chunks ≤200 chars at natural break points */
+const splitIntoChunks = (text: string): string[] => {
+  const chunks: string[] = [];
+  let remaining = text.trim();
+  while (remaining.length > 0) {
+    if (remaining.length <= 200) { chunks.push(remaining); break; }
+    let cut = 200;
+    for (let i = 199; i > 100; i--) {
+      if (/[.!?।\s,]/.test(remaining[i])) { cut = i + 1; break; }
+    }
+    const chunk = remaining.slice(0, cut).trim();
+    if (chunk) chunks.push(chunk);
+    remaining = remaining.slice(cut).trim();
+  }
+  return chunks;
+};
+
+/**
+ * Play a chunk via the backend TTS proxy (server calls Google TTS, avoids browser CORS).
+ * Returns an Audio element on success, null on failure.
+ */
+const playViaBackend = (chunk: string, language: AssistantLanguage, apiBaseUrl: string): Promise<HTMLAudioElement | null> =>
+  new Promise((resolve) => {
+    fetch(`${apiBaseUrl}/api/ai-assistant/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: chunk, language }),
+    })
+      .then((res) => {
+        if (!res.ok) { resolve(null); return; }
+        return res.blob();
+      })
+      .then((blob) => {
+        if (!blob) { resolve(null); return; }
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        audio.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        audio.play()
+          .then(() => resolve(audio))
+          .catch(() => { URL.revokeObjectURL(url); resolve(null); });
+      })
+      .catch(() => resolve(null));
+  });
+
+/** Wait for an audio element to finish playing */
+const waitForAudio = (audio: HTMLAudioElement): Promise<void> =>
+  new Promise((resolve) => {
+    if (audio.ended || audio.paused) { resolve(); return; }
+    audio.addEventListener("ended", () => resolve(), { once: true });
+    audio.addEventListener("error", () => resolve(), { once: true });
+  });
+
 export const handleVoiceOutput = async (payload: {
   text: string;
   preferredLanguage: AssistantLanguage;
   apiBaseUrl: string;
   stop?: boolean;
 }): Promise<void> => {
-  if (payload.stop) {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio = null;
-    }
-    window.speechSynthesis.cancel();
-    return;
-  }
-
+  // Stop any current playback
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
   window.speechSynthesis.cancel();
 
-  try {
-    const response = await fetch(`${payload.apiBaseUrl}/api/ai-assistant/tts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: payload.text,
-        language: payload.preferredLanguage,
-      }),
-    });
+  if (payload.stop) return;
 
-    if (response.ok) {
-      const blob = await response.blob();
-      const audioUrl = URL.createObjectURL(blob);
-      currentAudio = new Audio(audioUrl);
-      await currentAudio.play();
-      return;
+  const speechText = cleanForTts(payload.text || "", payload.preferredLanguage);
+  if (!speechText) return;
+
+  const isIndian = payload.preferredLanguage === "te" ||
+                   payload.preferredLanguage === "hi" ||
+                   payload.preferredLanguage === "ta" ||
+                   payload.preferredLanguage === "kn";
+
+  const chunks = splitIntoChunks(speechText);
+
+  if (isIndian) {
+    // Route through backend proxy — works for all Indian scripts without browser voice
+    for (const chunk of chunks) {
+      const audio = await playViaBackend(chunk, payload.preferredLanguage, payload.apiBaseUrl);
+      if (!audio) break; // proxy unavailable, stop silently
+      currentAudio = audio;
+      await waitForAudio(audio);
+      if (!currentAudio) break; // stopped by user
     }
-  } catch {
-    // Browser fallback below
+    return;
   }
 
+  // English: use browser speechSynthesis (reliable, no server round-trip needed)
   if ("speechSynthesis" in window) {
     loadVoices();
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(payload.text);
-
-    if (payload.preferredLanguage === "te") {
-      const teluguVoice = availableVoices.find((v) => v.lang.toLowerCase().includes("te"));
-      if (teluguVoice) {
-        utterance.voice = teluguVoice;
-      }
-      utterance.lang = "te-IN";
-    } else {
-      const englishVoice = availableVoices.find((v) => v.lang.toLowerCase().includes("en"));
-      if (englishVoice) {
-        utterance.voice = englishVoice;
-      }
-      utterance.lang = "en-US";
-    }
-
+    const englishVoice = availableVoices.find((v) => v.lang.toLowerCase().startsWith("en"));
+    const utterance = new SpeechSynthesisUtterance(speechText);
+    if (englishVoice) utterance.voice = englishVoice;
+    utterance.lang = "en-IN";
     utterance.rate = 0.9;
     utterance.pitch = 1;
     window.speechSynthesis.speak(utterance);
@@ -754,7 +884,7 @@ export const handleVoiceOutput = async (payload: {
 };
 
 const formatSectionsToText = (sections: FarmerAdviceSections, language: AssistantLanguage): string => {
-  return buildConciseFarmerMessage(sections, language);
+  return buildFullFarmerMessage(sections, language);
 };
 
 export const handleSendMessage = async (payload: {
@@ -770,6 +900,8 @@ export const handleSendMessage = async (payload: {
   previousQuestion?: string;
   previousResponse?: string;
   signal?: AbortSignal;
+  token?: string;
+  history?: Array<{ role: "user" | "bot"; text: string }>;
 }): Promise<{
   language: AssistantLanguage;
   analysis: FarmerInputAnalysis;
@@ -792,6 +924,8 @@ export const handleSendMessage = async (payload: {
     previousQuestion: payload.previousQuestion,
     previousResponse: payload.previousResponse,
     signal: payload.signal,
+    token: payload.token,
+    history: payload.history,
   });
 
   return {

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import fetchAndSummarizeNews from '../services/newsService.js';
 
 const router = Router();
 
@@ -574,17 +575,53 @@ const compareByNewestPublishedAt = (left, right) => {
 router.get('/headlines', async (req, res) => {
   try {
     const apiKey = process.env.NEWS_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: 'NEWS_API_KEY is missing from backend/.env' });
-    }
-
     const limit = Math.max(1, Math.min(Number(req.query.limit || 20), 50));
     const rawLang = String(req.query.lang || 'en').toLowerCase();
     const lang = rawLang.startsWith('te') ? 'te' : 'en';
     const region = String(req.query.region || (lang === 'te' ? 'ap' : 'global')).toLowerCase();
     const config = getRegionConfig(region);
 
-    const combined = await fetchArticlesForDomains(apiKey, config);
+    // For Telugu/AP, prefer domain-focused RSS fallback over generic mock data.
+    if (!apiKey && config.region === 'ap') {
+      const rssArticles = await fetchGoogleNewsRss(config, lang);
+      const rssScoped = rssArticles
+        .filter((article) => article?.title && article?.url && article?.publishedAt)
+        .filter((article) => isApAgricultureArticle(article))
+        .sort(compareByNewestPublishedAt)
+        .slice(0, limit)
+        .map((article) => buildArticle(article));
+
+      const localizedRss = await localizeArticles(rssScoped, lang);
+      if (localizedRss.length > 0) {
+        return res.json({
+          count: localizedRss.length,
+          articles: localizedRss,
+        });
+      }
+    }
+
+    if (!apiKey) {
+      const fallbackItems = await fetchAndSummarizeNews({ lang });
+      return res.json({
+        count: Math.min(limit, fallbackItems.length),
+        articles: fallbackItems.slice(0, limit).map((item) => ({
+          title: item.title || '',
+          summary: item.summary || '',
+          url: item.url || '',
+          source: item.source || 'AgriNews',
+          publishedAt: new Date().toISOString(),
+          category: inferCategory(`${item.title || ''} ${item.summary || ''}`),
+        })),
+      });
+    }
+
+    let combined = [];
+    try {
+      combined = await fetchArticlesForDomains(apiKey, config);
+    } catch (error) {
+      console.warn(`[News] NewsAPI primary fetch failed (${config.region}/${lang}): ${error.message}`);
+      combined = [];
+    }
     const seen = new Set();
 
     const scoreAndBuild = (articles) => {
@@ -633,6 +670,21 @@ router.get('/headlines', async (req, res) => {
         .sort(compareByNewestPublishedAt)
         .slice(0, limit)
         .map((article) => buildArticle(article));
+    }
+
+    if (scored.length === 0) {
+      const fallbackItems = await fetchAndSummarizeNews({ lang });
+      return res.json({
+        count: Math.min(limit, fallbackItems.length),
+        articles: fallbackItems.slice(0, limit).map((item) => ({
+          title: item.title || '',
+          summary: item.summary || '',
+          url: item.url || '',
+          source: item.source || 'AgriNews',
+          publishedAt: new Date().toISOString(),
+          category: inferCategory(`${item.title || ''} ${item.summary || ''}`),
+        })),
+      });
     }
 
     const localizedArticles = await localizeArticles(scored, lang);

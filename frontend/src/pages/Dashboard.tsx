@@ -10,7 +10,7 @@ const fadeUp = {
   hidden: { opacity: 0, y: 12 },
   show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.3 } }),
 };
-const API_BASE_URL = "http://127.0.0.1:5000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 const AGRI_KEYWORDS = [
   "agriculture",
@@ -123,7 +123,7 @@ export default function Dashboard() {
             {t("dashboard.welcome")} 👋
           </h1>
           {user && <p className="text-muted-foreground text-sm mt-1">{t("dashboard.welcome").split(",")[0]}, {user.name}</p>}
-          <p className="text-muted-foreground text-sm mt-1">Here's what's happening with your farm today.</p>
+          <p className="text-muted-foreground text-sm mt-1">{t("dashboard.subtitle")}</p>
         </div>
         <button
           onClick={handleLogout}
@@ -165,7 +165,7 @@ export default function Dashboard() {
       <motion.div initial="hidden" animate="show" custom={3} variants={fadeUp}>
         <div className="glass-card p-6">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="font-heading font-semibold text-sm text-muted-foreground">Latest Top 5 Headlines</h3>
+            <h3 className="font-heading font-semibold text-sm text-muted-foreground">{t("dashboard.latestHeadlines")}</h3>
             <button
               onClick={() => navigate("/news")}
               className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition"
@@ -175,16 +175,16 @@ export default function Dashboard() {
           </div>
 
           {headlinesLoading ? (
-            <p className="text-sm text-muted-foreground">Loading latest headlines...</p>
+            <p className="text-sm text-muted-foreground">{t("dashboard.loadingHeadlines")}</p>
           ) : headlinesError ? (
             <p className="text-sm text-destructive">{headlinesError}</p>
           ) : headlines.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No headlines available right now.</p>
+            <p className="text-sm text-muted-foreground">{t("dashboard.noHeadlines")}</p>
           ) : (
             <div className="space-y-3">
               {headlines.map((headline, index) => (
                 <div
-                  key={headline.url}
+                  key={headline.url || `${headline.title}-${index}`}
                   className="group flex items-center gap-4 p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white hover:scale-[1.02] hover:shadow-lg transition-all duration-300 cursor-pointer"
                 >
                   <div className="flex-1 min-w-0">

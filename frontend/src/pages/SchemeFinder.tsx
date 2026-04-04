@@ -76,12 +76,12 @@ export default function SchemeFinder() {
   };
 
   const states = [
-    "Andhra Pradesh",
-    "Telangana",
-    "Karnataka",
-    "Tamil Nadu",
-    "Maharashtra",
-    "Other",
+    { value: "Andhra Pradesh", label: t("states.andhra_pradesh") },
+    { value: "Telangana", label: t("states.telangana") },
+    { value: "Karnataka", label: t("states.karnataka") },
+    { value: "Tamil Nadu", label: t("states.tamil_nadu") },
+    { value: "Maharashtra", label: t("states.maharashtra") },
+    { value: "Other", label: t("states.other") },
   ];
 
   return (
@@ -124,8 +124,8 @@ export default function SchemeFinder() {
               className="w-full rounded-2xl border border-border bg-background px-5 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             >
               {states.map((state) => (
-                <option key={state} value={state}>
-                  {state}
+                <option key={state.value} value={state.value}>
+                  {state.label}
                 </option>
               ))}
             </select>

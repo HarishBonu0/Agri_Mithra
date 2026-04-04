@@ -78,4 +78,34 @@ export const api = {
   news: {
     list: (token: string) => request<{ success: boolean; data: any[] }>("/api/news", { token }),
   },
+
+  chat: {
+    listSessions: (token: string) =>
+      request<{ success: boolean; data: Array<{ sessionId: string; title: string; updatedAt: string }> }>(
+        "/api/chat/sessions",
+        { token }
+      ),
+
+    getSession: (token: string, sessionId: string) =>
+      request<{ success: boolean; data: { sessionId: string; title: string; messages: any[] } }>(
+        `/api/chat/sessions/${sessionId}`,
+        { token }
+      ),
+
+    saveSession: (
+      token: string,
+      data: { sessionId: string; title: string; messages: Array<{ role: string; text: string; attachments?: any[] }> }
+    ) =>
+      request<{ success: boolean; data: { sessionId: string; title: string } }>("/api/chat/sessions", {
+        method: "POST",
+        token,
+        body: data,
+      }),
+
+    deleteSession: (token: string, sessionId: string) =>
+      request<{ success: boolean }>(`/api/chat/sessions/${sessionId}`, {
+        method: "DELETE",
+        token,
+      }),
+  },
 };
