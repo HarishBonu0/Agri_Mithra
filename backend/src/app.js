@@ -14,6 +14,7 @@ import cropRoutes from './routes/cropRoutes.js';
 import schemeRoutes from './routes/schemeRoutes.js';
 import newsRoutes from './routes/newsRoutes.js';
 import aiAssistantRoutes from './routes/aiAssistantRoutes.js';
+import newsRouter from './routes/news.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,6 +78,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/crop', cropRoutes);
 app.use('/api/schemes', schemeRoutes);
+app.use('/api/news', newsRouter);
 app.use('/api/news', newsRoutes);
 app.use('/api/ai-assistant', aiAssistantRoutes);
 

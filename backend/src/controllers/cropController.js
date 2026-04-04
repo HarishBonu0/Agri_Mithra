@@ -8,6 +8,7 @@ import { cleanupFile } from '../middleware/uploadMiddleware.js';
 export const analyzeCrop = async (req, res) => {
   const filePath = req.file?.path;
   const startTime = Date.now();
+  const language = String(req.body?.lang || '').toLowerCase() === 'te' ? 'te' : 'en';
 
   try {
     // Guard: no file uploaded
@@ -75,6 +76,7 @@ export const analyzeCrop = async (req, res) => {
       diagnosisStatus: diagnosis.diagnosisStatus,
       confidence: diagnosis.confidence,
       topPredictions: diagnosis.topPredictions,
+      language,
     });
 
     // Step 3: Build the final response payload

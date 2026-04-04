@@ -17,7 +17,7 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-64 border-r border-border bg-sidebar min-h-screen p-4 gap-1">
-      <div className="flex items-center gap-2.5 px-3 py-4 mb-4 cursor-pointer" onClick={() => navigate("/home")}>
+      <div className="flex items-center gap-2.5 px-3 py-4 mb-4 cursor-pointer" onClick={() => navigate("/dashboard")}>
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
           <span className="text-primary-foreground font-heading font-bold text-sm">AM</span>
         </div>

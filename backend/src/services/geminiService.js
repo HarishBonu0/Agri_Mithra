@@ -3,7 +3,7 @@ import path from 'path';
 import axios from 'axios';
 import { generateTextWithLlm } from './llmService.js';
 
-const buildFallback = ({ diseaseLabel, diagnosisStatus = 'unknown', topPredictions = [], confidence = 0 }) => {
+const buildFallback = ({ diseaseLabel, diagnosisStatus = 'unknown', topPredictions = [], confidence = 0, language = 'en' }) => {
   const normalizedLabel = diseaseLabel || 'Unknown crop condition';
   const d = normalizedLabel.toLowerCase();
   const isUnknown = diagnosisStatus === 'unknown';
@@ -49,7 +49,7 @@ const buildFallback = ({ diseaseLabel, diagnosisStatus = 'unknown', topPredictio
     ];
   }
 
-  return {
+  const englishFallback = {
     diseaseLabel: normalizedLabel,
     whatIsHappening: isUnknown
       ? `The photo does not give a high-confidence disease match. Most likely class is ${normalizedLabel}${alternatives ? `, with close alternatives: ${alternatives}` : ''}.`
@@ -102,15 +102,93 @@ const buildFallback = ({ diseaseLabel, diagnosisStatus = 'unknown', topPredictio
     ],
     pesticideOptions,
     teluguSummary:
-      'ఆకులపై వ్యాధి వ్యాపిస్తోంది. వెంటనే బాధిత ఆకులను తొలగించండి, పై నుంచి నీరు పోయడం ఆపండి, సరైన మందును లేబుల్ ప్రకారం పిచికారీ చేయండి. 7 రోజుల పాటు రోజువారీ పర్యవేక్షణ చేయండి.',
+      'a��a��a��a��a��a�� a��a��a��a�+a��a�+ a��a��a��a�+a��a�+a�+a��a��a��a��a��a�+. a��a��a��a��a��a�� a��a�+a��a�+a�� a��a��a��a��a��a�� a��a��a��a��a�+a��a��a��a��a�+, a��a�� a��a��a��a��a�+ a��a��a��a�� a��a��a��a��a�� a��a��a��a��a�+, a�+a��a��a�� a��a��a��a��a��a�� a��a��a��a��a��a�� a��a��a��a��a�+a��a�� a��a�+a��a�+a��a�+a��a�� a��a��a��a��a��a�+. 7 a��a��a��a��a�� a��a�+a��a�� a��a��a��a��a��a�+a��a�� a��a��a��a��a��a��a��a��a�+a�� a��a��a��a��a��a�+.',
     disclaimer:
       isUnknown
         ? `Model confidence is low (${Number(confidence).toFixed(1)}%). Confirm with clearer photos or local agriculture officer before final spray decision.`
         : 'Final spray decision should follow the product label and local agriculture officer advice based on crop stage and local conditions.',
   };
+
+  if (language !== 'te') {
+    return englishFallback;
+  }
+
+  return {
+    ...englishFallback,
+    whatIsHappening: isUnknown
+      ? `${normalizedLabel} పై నిర్ధారణ స్పష్టంగా లేదు. మరింత స్పష్టమైన ఫోటోలు అప్లోడ్ చేయండి.`
+      : `${normalizedLabel} లక్షణాలు కనిపిస్తున్నాయి. తేమ ఎక్కువగా ఉంటే ఇది త్వరగా వ్యాపిస్తుంది.`,
+    whyItHappens: isUnknown
+      ? 'ఫోటో స్పష్టత తక్కువగా ఉండటం, ప్రారంభ దశ లక్షణాలు ఉండటం లేదా మోడల్‌కు పరిచయం లేని పరిస్థితి కారణం కావచ్చు.'
+      : 'ఎక్కువ ఆర్ద్రత, ఆకులపై తేమ ఎక్కువసేపు ఉండటం మరియు గాలి ప్రసరణ తక్కువగా ఉండటం వల్ల సాధారణంగా ఇది వస్తుంది.',
+    immediateActions: isUnknown
+      ? [
+          'ప్రభావిత ఆకుల 2 నుండి 3 క్లోజ్-అప్ ఫోటోలు వేర్వేరు మొక్కల నుంచి అప్లోడ్ చేయండి.',
+          'ఒక పూర్తి మొక్క ఫోటో మరియు ఆకు క్రింద భాగం ఫోటోను పగటి వెలుతురులో తీసుకోండి.',
+          'నిర్ధారణ అయ్యే వరకు కలిపిన మందులు వాడవద్దు.',
+          'ప్రభావిత ప్రాంతాన్ని గుర్తించి ప్రతిరోజూ పర్యవేక్షించండి.',
+        ]
+      : [
+          'తీవ్రంగా ప్రభావిత ఆకులను తొలగించి పొలానికి దూరంగా పారవేయండి.',
+          '2 నుండి 3 రోజులు పై నుంచి నీరు పోయకుండా, వేర్ల వద్ద మాత్రమే నీరు ఇవ్వండి.',
+          'వ్యాప్తి తగ్గించేందుకు ప్రభావిత మొక్కలను వీలైతే వేరుచేయండి.',
+          'లేబుల్ సూచనల ప్రకారం రక్షణాత్మక పిచికారీ ప్రారంభించండి.',
+        ],
+    weeklyPlan: isUnknown
+      ? [
+          'రోజు 1: స్పష్టమైన ఫోటోలు తీసి ప్రభావిత వరుసలను గుర్తించండి.',
+          'రోజు 2-3: కొత్త ఆకులకు వ్యాప్తి ఉందో లేదో చూడండి.',
+          'రోజు 4-5: వ్యాప్తి పెరిగితే స్థానిక వ్యవసాయ అధికారిని సంప్రదించండి.',
+          'రోజు 6-7: కొత్త ఫోటోలతో మళ్లీ స్కాన్ చేయండి.',
+        ]
+      : [
+          'రోజు 1: శుభ్రత చర్యలు చేసి మొదటి పిచికారీ చేయండి.',
+          'రోజు 2-3: దిగువ మరియు మధ్య ఆకులపై కొత్త మచ్చలు గమనించండి.',
+          'రోజు 4-5: కొత్తగా ప్రభావిత ఆకులు తొలగించి నీటి నిల్వ లేకుండా చూడండి.',
+          'రోజు 6-7: వ్యాప్తి కొనసాగితే రెండో పిచికారీపై నిర్ణయం తీసుకోండి.',
+        ],
+    preventionChecklist: [
+      'నమ్మకమైన వనరుల నుంచి రోగరహిత విత్తనాలు/నాట్లు వాడండి.',
+      'మొక్కల మధ్య సరైన దూరం ఉంచి గాలి ప్రసరణ పెంచండి.',
+      'సమతుల్య ఎరువులు వాడి అధిక నత్రజని నివారించండి.',
+      'తేమ ఉన్న వాతావరణంలో ప్రతి 3 నుండి 4 రోజులకు పంటను పరిశీలించండి.',
+    ],
+    lossReductionPlan: [
+      'మొదట తక్కువ ప్రభావిత ప్రాంతాలను రక్షించేలా చర్యలు తీసుకోండి.',
+      'వ్యాప్తి ఉన్న చోటే లక్ష్యంగా మందు వాడండి; అనవసర పిచికారీ నివారించండి.',
+      'తేమ సమతుల్యం ఉంచి ఒత్తిడి వల్ల దిగుబడి తగ్గుదల తగ్గించండి.',
+      'ప్రభావితం కాని పండిన దిగుబడిని సమయానికి కోయండి.',
+    ],
+    warningSigns: [
+      '48 గంటల్లో మచ్చలు వేగంగా పెరగడం',
+      'నీరు ఉన్నా కొత్త ఆకులు వాడిపోవడం',
+      'కాండం లేదా పండ్లపై కొత్త లక్షణాలు కనిపించడం',
+    ],
+    pesticideOptions: [
+      {
+        name: 'Mancozeb 75% WP',
+        useWhen: 'ఫంగల్ ఆకు మచ్చలు లేదా బ్లైట్ ప్రారంభ దశలో',
+        dosage: 'లీటర్ నీటికి 2 నుండి 2.5 గ్రాములు',
+        timing: 'ఉదయం లేదా సాయంత్రం పిచికారీ చేసి, అవసరమైతే 7 రోజులకు మళ్లీ చేయండి',
+        safety: 'గ్లవ్స్, మాస్క్ ధరించండి. బలమైన గాలి లేదా వర్షానికి ముందు స్ప్రే చేయవద్దు.',
+      },
+      {
+        name: 'Copper Oxychloride 50% WP',
+        useWhen: 'బ్యాక్టీరియా/ఫంగల్ ఆకు గాయాల సమయంలో',
+        dosage: 'లీటర్ నీటికి 2.5 నుండి 3 గ్రాములు',
+        timing: 'లక్షణాలు కనిపించగానే పిచికారీ చేసి 5 నుండి 7 రోజులకు పర్యవేక్షించండి',
+        safety: 'అధిక మోతాదు వాడవద్దు. స్ప్రే సమయంలో పిల్లలు, పశువులు దూరంగా ఉండాలి.',
+      },
+    ],
+    teluguSummary:
+      'ఆకులపై వ్యాధి వ్యాపించే అవకాశం ఉంది. బాధిత ఆకులను తొలగించండి, పై నుంచి నీరు పోయడం తగ్గించండి, సరైన మందును సూచించిన మోతాదులో పిచికారీ చేయండి మరియు 7 రోజుల పాటు పర్యవేక్షించండి.',
+    disclaimer: isUnknown
+      ? `నిర్ధారణ నమ్మక స్థాయి తక్కువగా ఉంది (${Number(confidence).toFixed(1)}%). తుది మందు నిర్ణయం ముందు స్పష్టమైన ఫోటోలతో లేదా స్థానిక వ్యవసాయ అధికారితో నిర్ధారించండి.`
+      : 'తుది మందు నిర్ణయం పంట దశ, స్థానిక పరిస్థితులు, లేబుల్ సూచనలు మరియు వ్యవసాయ అధికారుల సలహా ఆధారంగా తీసుకోండి.',
+  };
 };
 
-const buildPrompt = ({ diseaseLabel, diagnosisStatus, confidence, topPredictions }) =>
+const buildPrompt = ({ diseaseLabel, diagnosisStatus, confidence, topPredictions, language = 'en' }) =>
   `You are an agriculture field advisor for Indian farmers.
 
 Detected disease label: "${diseaseLabel}".
@@ -146,16 +224,31 @@ Rules:
 - Mention safe pesticide options where appropriate.
 - If diagnosisStatus is unknown or low_confidence, add conservative next steps and ask for better images.
 - No confidence, probability, ML, or model terms.
+- Output language for all user-facing values in JSON: ${language === 'te' ? 'Telugu (native Telugu script)' : 'English'}.
 - No markdown.`.trim();
 
-const parseGeminiJson = (text, fallback) => {
+const containsTelugu = (value) => /[\u0C00-\u0C7F]/.test(String(value || ''));
+
+const chooseLocalizedText = (candidate, fallbackText, language) => {
+  if (!candidate || typeof candidate !== 'string') return fallbackText;
+  if (language !== 'te') return candidate;
+  return containsTelugu(candidate) ? candidate : fallbackText;
+};
+
+const chooseLocalizedList = (items, fallbackList, language) => {
+  if (!Array.isArray(items)) return fallbackList;
+  const cleaned = items.filter((x) => typeof x === 'string' && x.trim());
+  if (cleaned.length === 0) return fallbackList;
+  if (language !== 'te') return cleaned;
+  const hasTelugu = cleaned.some((item) => containsTelugu(item));
+  return hasTelugu ? cleaned : fallbackList;
+};
+
+const parseGeminiJson = (text, fallback, language = 'en') => {
   try {
     const cleaned = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);
-    const pickList = (key, defaultList = []) =>
-      Array.isArray(parsed[key]) ? parsed[key].filter((x) => typeof x === 'string' && x.trim()) : defaultList;
-
-    const pesticideOptions = Array.isArray(parsed.pesticideOptions)
+    let pesticideOptions = Array.isArray(parsed.pesticideOptions)
       ? parsed.pesticideOptions
           .map((p) => ({
             name: p?.name || '',
@@ -167,18 +260,25 @@ const parseGeminiJson = (text, fallback) => {
           .filter((p) => p.name)
       : fallback.pesticideOptions;
 
+    if (language === 'te' && pesticideOptions.length > 0) {
+      const hasTeluguDetails = pesticideOptions.some((p) =>
+        containsTelugu(p.useWhen) || containsTelugu(p.dosage) || containsTelugu(p.timing) || containsTelugu(p.safety)
+      );
+      if (!hasTeluguDetails) pesticideOptions = fallback.pesticideOptions;
+    }
+
     return {
       ...fallback,
-      whatIsHappening: parsed.whatIsHappening || fallback.whatIsHappening,
-      whyItHappens: parsed.whyItHappens || fallback.whyItHappens,
-      immediateActions: pickList('immediateActions', fallback.immediateActions),
-      weeklyPlan: pickList('weeklyPlan', fallback.weeklyPlan),
-      preventionChecklist: pickList('preventionChecklist', fallback.preventionChecklist),
-      lossReductionPlan: pickList('lossReductionPlan', fallback.lossReductionPlan),
-      warningSigns: pickList('warningSigns', fallback.warningSigns),
+      whatIsHappening: chooseLocalizedText(parsed.whatIsHappening, fallback.whatIsHappening, language),
+      whyItHappens: chooseLocalizedText(parsed.whyItHappens, fallback.whyItHappens, language),
+      immediateActions: chooseLocalizedList(parsed.immediateActions, fallback.immediateActions, language),
+      weeklyPlan: chooseLocalizedList(parsed.weeklyPlan, fallback.weeklyPlan, language),
+      preventionChecklist: chooseLocalizedList(parsed.preventionChecklist, fallback.preventionChecklist, language),
+      lossReductionPlan: chooseLocalizedList(parsed.lossReductionPlan, fallback.lossReductionPlan, language),
+      warningSigns: chooseLocalizedList(parsed.warningSigns, fallback.warningSigns, language),
       pesticideOptions,
-      teluguSummary: parsed.teluguSummary || fallback.teluguSummary,
-      disclaimer: parsed.disclaimer || fallback.disclaimer,
+      teluguSummary: chooseLocalizedText(parsed.teluguSummary, fallback.teluguSummary, language),
+      disclaimer: chooseLocalizedText(parsed.disclaimer, fallback.disclaimer, language),
     };
   } catch {
     return fallback;
@@ -368,17 +468,17 @@ Rules:
   throw new Error(`AI fallback disease detection failed. ${errors.join(' | ')}`);
 };
 
-const generateCropAdvisory = async ({ diseaseLabel, diagnosisStatus, confidence, topPredictions }) => {
-  const fallback = buildFallback({ diseaseLabel, diagnosisStatus, confidence, topPredictions });
+const generateCropAdvisory = async ({ diseaseLabel, diagnosisStatus, confidence, topPredictions, language = 'en' }) => {
+  const fallback = buildFallback({ diseaseLabel, diagnosisStatus, confidence, topPredictions, language });
   const result = await generateTextWithLlm({
-    prompt: buildPrompt({ diseaseLabel, diagnosisStatus, confidence, topPredictions }),
+    prompt: buildPrompt({ diseaseLabel, diagnosisStatus, confidence, topPredictions, language }),
     temperature: 0.2,
     maxOutputTokens: 1200,
     logTag: 'CropAdvisory',
   });
 
   if (result?.text) {
-    return parseGeminiJson(result.text, fallback);
+    return parseGeminiJson(result.text, fallback, language);
   }
 
   return fallback;

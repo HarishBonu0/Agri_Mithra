@@ -51,9 +51,10 @@ export const api = {
   },
 
   crop: {
-    analyze: (token: string, file: File) => {
+    analyze: (token: string, file: File, lang: "en" | "te" = "en") => {
       const formData = new FormData();
       formData.append("image", file);
+      formData.append("lang", lang);
       return request<{ success: boolean; data: any }>("/api/crop/analyze", {
         method: "POST",
         token,

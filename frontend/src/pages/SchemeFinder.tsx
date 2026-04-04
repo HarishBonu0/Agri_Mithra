@@ -1,175 +1,308 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, CornerDownRight } from "lucide-react";
-import { motion } from "framer-motion";
-import { useI18n } from "@/lib/i18n";
-import { useAuth } from "@/lib/auth";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-interface Message {
-  role: "user" | "bot";
-  text?: string;
-  key?: string;
-  params?: Record<string, string | number>;
-}
-
-const quickQuestions = [
-  "schemes.q1",
-  "schemes.q2",
-  "schemes.q3",
-  "schemes.q4",
-];
+import { motion } from "framer-motion";
+import { Sprout, Loader2, AlertCircle } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export default function SchemeFinder() {
-  const { t, lang } = useI18n();
-  const { isLoggedIn } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "bot", key: "schemes.greeting" },
-  ]);
-  const [input, setInput] = useState("");
-  const [typing, setTyping] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    state: "Andhra Pradesh",
+    landHectares: "",
+    landUnit: "hectares",
+    annualIncome: "",
+    hasAadhaar: "yes",
+    hasBankAccount: "yes",
+  });
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, typing]);
-
-  useEffect(() => {
-    setMessages([{ role: "bot", key: "schemes.greeting" }]);
-    setTyping(false);
-  }, [lang]);
-
-  if (!isLoggedIn) {
-    return (
-      <div className="max-w-3xl mx-auto flex flex-col items-center justify-center h-[300px]">
-        <div className="text-center">
-          <p className="text-lg font-semibold text-foreground mb-4">{t("auth.loginRequired")}</p>
-          <p className="text-muted-foreground mb-6">{t("schemes.loginPrompt")}</p>
-          <button
-            onClick={() => navigate("/login")}
-            className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition"
-          >
-            {t("auth.goToLogin")}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const send = async (text: string) => {
-    if (!text.trim()) return;
-    setMessages((prev) => [...prev, { role: "user", text }]);
-    setInput("");
-    setTyping(true);
-
-    try {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-      const response = await fetch(`${apiBaseUrl}/api/schemes/chat?lang=${lang}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, lang }),
-      });
-
-      if (response.ok) {
-        const payload = await response.json();
-        const reply = payload?.reply;
-        if (typeof reply === "string" && reply.trim()) {
-          setMessages((prev) => [...prev, { role: "bot", text: reply }]);
-          return;
-        }
-      }
-    } catch {
-      // Fall through to localized offline template.
-    } finally {
-      setTyping(false);
-    }
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "bot",
-        key: "schemes.botTemplate",
-        params: { query: text },
-      },
-    ]);
+  const parseNumber = (raw: string) => {
+    const normalized = raw.replace(/,/g, "").trim();
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
   };
 
-  return (
-    <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)]">
-      <div className="mb-5">
-        <h1 className="font-heading text-2xl font-bold text-foreground">{t("schemes.title")}</h1>
-      </div>
+  const submit = () => {
+    setError("");
 
-      <div className="flex-1 overflow-y-auto space-y-3 pb-4">
-        {messages.map((msg, i) => (
+    if (!form.landHectares) {
+      setError(t("schemes.land_required"));
+      return;
+    }
+
+    if (!form.annualIncome) {
+      setError(t("schemes.income_required"));
+      return;
+    }
+
+    const landValue = parseNumber(form.landHectares);
+    const incomeValue = parseNumber(form.annualIncome);
+
+    if (landValue == null || landValue <= 0) {
+      setError(t("schemes.land_required"));
+      return;
+    }
+
+    if (incomeValue == null || incomeValue < 0) {
+      setError(t("schemes.income_required"));
+      return;
+    }
+
+    const profileData = {
+      state: form.state,
+      annualIncome: incomeValue,
+      isIndianResident: true,
+      farmerType: "landowner",
+      hasCropCultivation: true,
+      hasCropInsuranceNeed: true,
+      needsIrrigation: true,
+      hasAadhaar: form.hasAadhaar === "yes",
+      hasBankAccount: form.hasBankAccount === "yes",
+      hasLandProof: true,
+      isRegisteredCultivator: true,
+      hasEnrolledBeforeSeason: true,
+      enteredAnnualIncome: form.annualIncome,
+      ...(form.landUnit === "acres"
+        ? { landAcres: landValue }
+        : form.landUnit === "cents"
+          ? { landAcres: landValue / 100 }
+        : { landHectares: landValue }),
+    };
+
+    setLoading(true);
+    navigate("/scheme-results", { state: { profileData } });
+  };
+
+  const states = [
+    "Andhra Pradesh",
+    "Telangana",
+    "Karnataka",
+    "Tamil Nadu",
+    "Maharashtra",
+    "Other",
+  ];
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6 p-4"
+      >
+        <div className="space-y-2">
+          <h1 className="font-heading text-3xl md:text-4xl font-bold text-foreground flex items-center gap-3">
+            <Sprout className="h-8 w-8 text-primary" />
+            {t("schemes.title")}
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            {t("schemes.subtitle")}
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-border bg-card/80 backdrop-blur-md shadow-lg p-8 space-y-6">
+          <h2 className="text-xl font-semibold text-foreground">
+            {t("schemes.profile")}
+          </h2>
+
+          {/* Question 1: State */}
           <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-2"
           >
-            <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm whitespace-pre-line shadow-md ${
-                msg.role === "user"
-                  ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-br-md hover:shadow-lg transition"
-                  : "glass-card rounded-bl-md text-foreground"
-              }`}
+            <label className="text-base font-medium text-foreground">
+              1. {t("schemes.state")}
+            </label>
+            <select
+              value={form.state}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, state: e.target.value }))
+              }
+              className="w-full rounded-2xl border border-border bg-background px-5 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             >
-              {msg.text ?? t(msg.key || "", msg.params)}
+              {states.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
+          </motion.div>
+
+          {/* Question 2: Land Size */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-2"
+          >
+            <label className="text-base font-medium text-foreground">
+              2. {t("schemes.land")}
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[1fr_140px]">
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={form.landHectares}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, landHectares: e.target.value }))
+              }
+              placeholder={t("schemes.land_example")}
+              className="w-full rounded-2xl border border-border bg-background px-5 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+            />
+              <select
+                value={form.landUnit}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, landUnit: e.target.value }))
+                }
+                className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              >
+                <option value="hectares">{t("schemes.unit_hectares")}</option>
+                <option value="acres">{t("schemes.unit_acres")}</option>
+                <option value="cents">{t("schemes.unit_cents")}</option>
+              </select>
             </div>
           </motion.div>
-        ))}
 
-        {typing && (
-          <div className="flex justify-start">
-            <div className="glass-card rounded-2xl rounded-bl-md px-4 py-3 flex gap-1.5 shadow-md">
-              <span className="typing-dot" />
-              <span className="typing-dot" />
-              <span className="typing-dot" />
+          {/* Question 3: Annual Income */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="space-y-2"
+          >
+            <label className="text-base font-medium text-foreground">
+              3. {t("schemes.income")}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.annualIncome}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, annualIncome: e.target.value }))
+              }
+              placeholder={t("schemes.income_example")}
+              className="w-full rounded-2xl border border-border bg-background px-5 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+            />
+          </motion.div>
+
+          {/* Question 4: Aadhaar */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-2"
+          >
+            <label className="text-base font-medium text-foreground">
+              4. {t("schemes.aadhaar")}
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="aadhaar"
+                  value="yes"
+                  checked={form.hasAadhaar === "yes"}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, hasAadhaar: e.target.value }))
+                  }
+                  className="w-5 h-5 text-primary"
+                />
+                <span className="text-foreground">{t("common.yes")}</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="aadhaar"
+                  value="no"
+                  checked={form.hasAadhaar === "no"}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, hasAadhaar: e.target.value }))
+                  }
+                  className="w-5 h-5 text-primary"
+                />
+                <span className="text-foreground">{t("common.no")}</span>
+              </label>
             </div>
-          </div>
-        )}
+          </motion.div>
 
-        {messages.length === 1 && !typing && (
-          <div className="pt-2">
-            <p className="text-xs text-muted-foreground font-medium mb-2">{t("schemes.quick")}</p>
-            <div className="flex flex-wrap gap-2">
-              {quickQuestions.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => send(t(q))}
-                  className="px-3.5 py-2 rounded-full bg-white/70 backdrop-blur-lg shadow-md text-xs font-medium text-foreground hover:bg-white hover:scale-[1.02] transition-all duration-300 active:scale-[0.97] inline-flex items-center gap-1.5"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-secondary" />
-                  {t(q)}
-                </button>
-              ))}
+          {/* Question 5: Bank Account */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5 }}
+            className="space-y-2"
+          >
+            <label className="text-base font-medium text-foreground">
+              5. {t("schemes.bank")}
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="bank"
+                  value="yes"
+                  checked={form.hasBankAccount === "yes"}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      hasBankAccount: e.target.value,
+                    }))
+                  }
+                  className="w-5 h-5 text-primary"
+                />
+                <span className="text-foreground">{t("common.yes")}</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="bank"
+                  value="no"
+                  checked={form.hasBankAccount === "no"}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      hasBankAccount: e.target.value,
+                    }))
+                  }
+                  className="w-5 h-5 text-primary"
+                />
+                <span className="text-foreground">{t("common.no")}</span>
+              </label>
             </div>
-          </div>
-        )}
+          </motion.div>
 
-        <div ref={bottomRef} />
-      </div>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 p-4"
+            >
+              <AlertCircle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-destructive">{error}</p>
+            </motion.div>
+          )}
 
-      <div className="flex items-center gap-2 bg-white/70 backdrop-blur-lg shadow-md rounded-2xl border border-white/50 p-2.5">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send(input)}
-          placeholder={t("schemes.ask")}
-          className="flex-1 bg-transparent text-sm outline-none px-2 text-foreground placeholder:text-muted-foreground"
-        />
-        <button
-          onClick={() => send(input)}
-          disabled={!input.trim()}
-          className="h-10 rounded-xl px-3 bg-gradient-to-r from-primary to-secondary text-primary-foreground flex items-center justify-center gap-1.5 hover:shadow-lg hover:scale-[1.02] transition duration-300 disabled:opacity-40 active:scale-[0.95]"
-        >
-          <CornerDownRight className="h-3.5 w-3.5" />
-          <Send className="h-4 w-4" />
-        </button>
-      </div>
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            onClick={submit}
+            disabled={loading}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-4 text-base font-semibold text-primary-foreground shadow-lg hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Sprout className="h-5 w-5" />
+            )}
+            {t("schemes.check")}
+          </motion.button>
+        </div>
+      </motion.div>
     </div>
   );
 }
