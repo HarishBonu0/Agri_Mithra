@@ -15,6 +15,7 @@ import schemeRoutes from './routes/schemeRoutes.js';
 import newsRoutes from './routes/newsRoutes.js';
 import aiAssistantRoutes from './routes/aiAssistantRoutes.js';
 import newsRouter from './routes/news.js';
+import adminRoutes from './routes/adminRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +82,7 @@ app.use('/api/schemes', schemeRoutes);
 app.use('/api/news', newsRouter);
 app.use('/api/news', newsRoutes);
 app.use('/api/ai-assistant', aiAssistantRoutes);
+app.use('/api/admin', adminRoutes);
 
 // --- 404 ---
 app.use((req, res) => {
