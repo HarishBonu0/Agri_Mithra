@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import SchemeResults from "./pages/SchemeResults";
 import AdminDashboard from "./pages/AdminDashboard";
 import GuestPreview from "./pages/GuestPreview";
+import FloatingAssistant from "@/components/FloatingAssistant";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +133,7 @@ const App = () => (
               />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <FloatingAssistant />
           </BrowserRouter>
         </AuthProvider>
       </I18nProvider>
