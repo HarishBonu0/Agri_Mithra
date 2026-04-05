@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Bot, MessageCircle, Mic, Send, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
-import { handleSendMessage, handleVoiceInput, type AssistantLanguage } from "@/lib/agriAssistant";
+import { handleSendMessage, handleVoiceInput, handleVoiceOutput, type AssistantLanguage } from "@/lib/agriAssistant";
 
 type WidgetMessage = {
   id: string;
@@ -23,6 +23,7 @@ export default function FloatingAssistant() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [recognizing, setRecognizing] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -81,8 +82,8 @@ export default function FloatingAssistant() {
     ensureWelcome();
   };
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
+  const runMessageFlow = async (rawText: string, withVoiceReadback: boolean) => {
+    const trimmed = rawText.trim();
     if (!trimmed || loading || !isLoggedIn) return;
 
     const userMessage: WidgetMessage = { id: `m-${Date.now()}-u`, role: "user", text: trimmed };
@@ -109,6 +110,20 @@ export default function FloatingAssistant() {
         { id: `m-${Date.now()}-b`, role: "bot", text: result.formattedText || text.welcome },
       ]);
 
+      if (withVoiceReadback && result.formattedText) {
+        setSpeaking(true);
+        try {
+          await handleVoiceOutput({
+            text: result.formattedText,
+            preferredLanguage: (result.language || appLang) as AssistantLanguage,
+            apiBaseUrl: API_BASE_URL,
+            token: token || undefined,
+          });
+        } finally {
+          setSpeaking(false);
+        }
+      }
+
       setTimeout(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
       }, 20);
@@ -126,6 +141,10 @@ export default function FloatingAssistant() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const sendMessage = async () => {
+    await runMessageFlow(input, false);
   };
 
   const startVoiceMessage = async () => {
@@ -144,9 +163,7 @@ export default function FloatingAssistant() {
       if (!transcript || !transcript.trim()) return;
 
       setInput(transcript);
-      setTimeout(() => {
-        void sendMessageFromVoice(transcript);
-      }, 10);
+      await sendMessageFromVoice(transcript);
     } catch {
       // If voice capture fails, keep the widget usable with text input.
     } finally {
@@ -155,49 +172,7 @@ export default function FloatingAssistant() {
   };
 
   const sendMessageFromVoice = async (voiceText: string) => {
-    if (!voiceText.trim() || loading || !isLoggedIn) return;
-
-    const userMessage: WidgetMessage = { id: `m-${Date.now()}-u`, role: "user", text: voiceText.trim() };
-    const history: Array<{ role: "user" | "bot"; text: string }> = [...messages, userMessage]
-      .slice(-12)
-      .map((m) => ({ role: m.role, text: m.text }));
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setLoading(true);
-
-    try {
-      const result = await handleSendMessage({
-        message: voiceText.trim(),
-        appLang,
-        apiBaseUrl: API_BASE_URL,
-        explicitLanguage: appLang as AssistantLanguage,
-        token: token || undefined,
-        history,
-      });
-
-      setMessages((prev) => [
-        ...prev,
-        { id: `m-${Date.now()}-b`, role: "bot", text: result.formattedText || text.welcome },
-      ]);
-
-      setTimeout(() => {
-        listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-      }, 20);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `m-${Date.now()}-e`,
-          role: "bot",
-          text: appLang === "te"
-            ? "క్షమించండి, ప్రస్తుతం సమాధానం ఇవ్వలేకపోతున్నాను. దయచేసి మళ్లీ ప్రయత్నించండి."
-            : "Sorry, I could not answer right now. Please try again.",
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+    await runMessageFlow(voiceText, true);
   };
 
   return (
@@ -287,6 +262,11 @@ export default function FloatingAssistant() {
                 </div>
                 {recognizing && (
                   <p className="text-[11px] text-muted-foreground px-1">{text.listening}</p>
+                )}
+                {speaking && (
+                  <p className="text-[11px] text-muted-foreground px-1">
+                    {appLang === "te" ? "సమాధానం చదువుతోంది..." : "Reading response..."}
+                  </p>
                 )}
                 <button
                   onClick={() => navigate("/ai-assistant")}
