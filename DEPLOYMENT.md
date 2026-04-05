@@ -15,6 +15,8 @@ This project is deployed as:
 5. In Render dashboard, fill required environment variables:
    - MONGO_URI
    - JWT_SECRET
+   - ADMIN_PHONE
+   - ADMIN_PASSWORD
    - ALLOWED_ORIGINS
    - NEWS_API_KEY (optional but recommended)
    - GEMINI_API_KEY and/or OPENROUTER_API_KEY (as per your AI provider)

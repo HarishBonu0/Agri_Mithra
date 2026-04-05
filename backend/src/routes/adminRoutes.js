@@ -3,10 +3,9 @@ import mongoose from 'mongoose';
 import protect from '../middleware/authMiddleware.js';
 import User from '../models/User.js';
 import CropAnalysis from '../models/CropAnalysis.js';
+import { config } from '../config/env.js';
 
 const router = Router();
-
-const ADMIN_PHONE = '9182392500';
 
 const startOfToday = () => {
   const now = new Date();
@@ -51,9 +50,12 @@ router.get('/overview', protect, async (req, res) => {
       ]),
     ]);
 
-    const adminUsers = await User.countDocuments({
-      $or: [{ phone: ADMIN_PHONE }, { phone: `+91${ADMIN_PHONE}` }],
-    });
+    const normalizedAdminPhone = String(config.adminPhone || '').replace(/^\+91/, '');
+    const adminUsers = normalizedAdminPhone
+      ? await User.countDocuments({
+          $or: [{ phone: normalizedAdminPhone }, { phone: `+91${normalizedAdminPhone}` }],
+        })
+      : 0;
 
     const statusCounts = {
       confirmed: 0,
