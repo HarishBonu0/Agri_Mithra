@@ -50,6 +50,38 @@ type AdminOverviewPayload = {
   };
 };
 
+type UserActivityPayload = {
+  success: boolean;
+  data: {
+    user: {
+      id: string;
+      name: string;
+      phone: string;
+      createdAt: string;
+    };
+    stats: {
+      analyses: number;
+      chatSessions: number;
+    };
+    recentAnalyses: Array<{
+      id: string;
+      cropType: string;
+      diseaseLabel: string;
+      diagnosisStatus: string;
+      confidence: number;
+      createdAt: string;
+    }>;
+    recentChats: Array<{
+      id: string;
+      sessionId: string;
+      title: string;
+      messageCount: number;
+      updatedAt: string;
+      createdAt: string;
+    }>;
+  };
+};
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
 
 export default function AdminDashboard() {
@@ -60,6 +92,9 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<AdminOverviewPayload | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [userActivity, setUserActivity] = useState<UserActivityPayload["data"] | null>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const fetchAdminMetrics = async () => {
     setLoading(true);
@@ -80,6 +115,57 @@ export default function AdminDashboard() {
       setLastError(error instanceof Error ? error.message : "Failed to load admin data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserActivity = async (userId: string) => {
+    setActivityLoading(true);
+    setLastError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/activity`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as Partial<UserActivityPayload> & { message?: string };
+      if (!response.ok) {
+        throw new Error(payload.message || `Failed to load user activity (${response.status})`);
+      }
+
+      setUserActivity((payload as UserActivityPayload).data);
+    } catch (error) {
+      setLastError(error instanceof Error ? error.message : "Failed to load user activity");
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
+  const deleteUser = async (userId: string, name: string) => {
+    const confirmed = window.confirm(`Delete user ${name}? This will permanently remove their analyses and chat sessions.`);
+    if (!confirmed) return;
+
+    setDeletingUserId(userId);
+    setLastError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { message?: string; data?: { deletedUserId?: string } };
+      if (!response.ok) {
+        throw new Error(payload.message || `Failed to delete user (${response.status})`);
+      }
+
+      if (userActivity?.user?.id === userId) {
+        setUserActivity(null);
+      }
+
+      await fetchAdminMetrics();
+    } catch (error) {
+      setLastError(error instanceof Error ? error.message : "Failed to delete user");
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -225,11 +311,98 @@ export default function AdminDashboard() {
                   <p className="text-sm font-medium text-foreground">{item.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">{item.phone}</p>
                   <p className="text-xs text-muted-foreground mt-1">Joined: {new Date(item.createdAt).toLocaleString()}</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      onClick={() => fetchUserActivity(item.id)}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-primary/40 text-primary hover:bg-primary/10"
+                    >
+                      View Activity
+                    </button>
+                    <button
+                      onClick={() => deleteUser(item.id, item.name)}
+                      disabled={deletingUserId === item.id}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-60"
+                    >
+                      {deletingUserId === item.id ? "Deleting..." : "Delete User"}
+                    </button>
+                  </div>
                 </div>
               ))}
           </div>
         </motion.section>
       </div>
+
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.07 }}
+        className="rounded-2xl border border-border bg-card p-5"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-foreground">Selected User Activity</h2>
+          {userActivity && (
+            <button
+              onClick={() => setUserActivity(null)}
+              className="px-3 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:bg-muted"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {activityLoading && <p className="mt-3 text-sm text-muted-foreground">Loading user activity...</p>}
+        {!activityLoading && !userActivity && (
+          <p className="mt-3 text-sm text-muted-foreground">Select a user from Recent User Activity to inspect actions.</p>
+        )}
+
+        {!activityLoading && userActivity && (
+          <div className="mt-4 space-y-4">
+            <div className="rounded-xl border border-border/80 p-4">
+              <p className="text-sm font-semibold text-foreground">{userActivity.user.name}</p>
+              <p className="text-xs text-muted-foreground mt-1">{userActivity.user.phone}</p>
+              <p className="text-xs text-muted-foreground mt-1">Joined: {new Date(userActivity.user.createdAt).toLocaleString()}</p>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <p>Crop analyses: <span className="font-semibold">{userActivity.stats.analyses}</span></p>
+                <p>Chat sessions: <span className="font-semibold">{userActivity.stats.chatSessions}</span></p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-border/80 p-4">
+                <p className="text-sm font-semibold text-foreground">Recent Crop Analyses</p>
+                <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
+                  {userActivity.recentAnalyses.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No crop analyses recorded.</p>
+                  )}
+                  {userActivity.recentAnalyses.map((item) => (
+                    <div key={item.id} className="rounded-lg border border-border/70 p-2.5">
+                      <p className="text-sm font-medium text-foreground">{item.diseaseLabel}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{item.cropType} • {item.diagnosisStatus} • {Number(item.confidence || 0).toFixed(1)}%</p>
+                      <p className="text-xs text-muted-foreground mt-1">{new Date(item.createdAt).toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/80 p-4">
+                <p className="text-sm font-semibold text-foreground">Recent AI Chat Sessions</p>
+                <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
+                  {userActivity.recentChats.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No chat sessions recorded.</p>
+                  )}
+                  {userActivity.recentChats.map((item) => (
+                    <div key={item.id} className="rounded-lg border border-border/70 p-2.5">
+                      <p className="text-sm font-medium text-foreground truncate">{item.title || "New Chat"}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Messages: {item.messageCount}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Updated: {new Date(item.updatedAt).toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </motion.section>
 
       <motion.section
         initial={{ opacity: 0, y: 10 }}
