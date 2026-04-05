@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Bot, MessageCircle, Send, X } from "lucide-react";
+import { Bot, MessageCircle, Mic, Send, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
-import { handleSendMessage, type AssistantLanguage } from "@/lib/agriAssistant";
+import { handleSendMessage, handleVoiceInput, type AssistantLanguage } from "@/lib/agriAssistant";
 
 type WidgetMessage = {
   id: string;
@@ -22,6 +22,7 @@ export default function FloatingAssistant() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recognizing, setRecognizing] = useState(false);
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +41,8 @@ export default function FloatingAssistant() {
         signupButton: "సైన్ అప్",
         welcome: "నమస్కారం రైతు గారూ. నేను అగ్రిమిత్ర. మీ వ్యవసాయ సందేహం చెప్పండి.",
         launcher: "AI చాట్",
+        voice: "వాయిస్",
+        listening: "వింటోంది...",
       };
     }
 
@@ -54,6 +57,8 @@ export default function FloatingAssistant() {
       signupButton: "Sign up",
       welcome: "Hello farmer. I am AgriMithra. Ask me any agriculture question.",
       launcher: "AI Chat",
+      voice: "Voice",
+      listening: "Listening...",
     };
   }, [lang]);
 
@@ -92,6 +97,78 @@ export default function FloatingAssistant() {
     try {
       const result = await handleSendMessage({
         message: trimmed,
+        appLang,
+        apiBaseUrl: API_BASE_URL,
+        explicitLanguage: appLang as AssistantLanguage,
+        token: token || undefined,
+        history,
+      });
+
+      setMessages((prev) => [
+        ...prev,
+        { id: `m-${Date.now()}-b`, role: "bot", text: result.formattedText || text.welcome },
+      ]);
+
+      setTimeout(() => {
+        listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+      }, 20);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `m-${Date.now()}-e`,
+          role: "bot",
+          text: appLang === "te"
+            ? "క్షమించండి, ప్రస్తుతం సమాధానం ఇవ్వలేకపోతున్నాను. దయచేసి మళ్లీ ప్రయత్నించండి."
+            : "Sorry, I could not answer right now. Please try again.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startVoiceMessage = async () => {
+    if (!isLoggedIn || recognizing || loading) return;
+
+    const preferredLanguage: AssistantLanguage = appLang as AssistantLanguage;
+
+    try {
+      setRecognizing(true);
+      const transcript = await handleVoiceInput({
+        preferredLanguage,
+        apiBaseUrl: API_BASE_URL,
+        token: token || undefined,
+      });
+
+      if (!transcript || !transcript.trim()) return;
+
+      setInput(transcript);
+      setTimeout(() => {
+        void sendMessageFromVoice(transcript);
+      }, 10);
+    } catch {
+      // If voice capture fails, keep the widget usable with text input.
+    } finally {
+      setRecognizing(false);
+    }
+  };
+
+  const sendMessageFromVoice = async (voiceText: string) => {
+    if (!voiceText.trim() || loading || !isLoggedIn) return;
+
+    const userMessage: WidgetMessage = { id: `m-${Date.now()}-u`, role: "user", text: voiceText.trim() };
+    const history: Array<{ role: "user" | "bot"; text: string }> = [...messages, userMessage]
+      .slice(-12)
+      .map((m) => ({ role: m.role, text: m.text }));
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const result = await handleSendMessage({
+        message: voiceText.trim(),
         appLang,
         apiBaseUrl: API_BASE_URL,
         explicitLanguage: appLang as AssistantLanguage,
@@ -176,6 +253,17 @@ export default function FloatingAssistant() {
 
               <div className="border-t border-border/70 p-3 space-y-2">
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => void startVoiceMessage()}
+                    disabled={loading || recognizing}
+                    className={`h-10 w-10 rounded-xl border border-border flex items-center justify-center transition ${
+                      recognizing ? "bg-primary/15 text-primary animate-pulse" : "hover:bg-muted"
+                    } disabled:opacity-60`}
+                    aria-label={text.voice}
+                    title={recognizing ? text.listening : text.voice}
+                  >
+                    <Mic className="h-4 w-4" />
+                  </button>
                   <input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -197,6 +285,9 @@ export default function FloatingAssistant() {
                     <Send className="h-4 w-4" />
                   </button>
                 </div>
+                {recognizing && (
+                  <p className="text-[11px] text-muted-foreground px-1">{text.listening}</p>
+                )}
                 <button
                   onClick={() => navigate("/ai-assistant")}
                   className="w-full rounded-xl border border-border text-sm py-2 text-muted-foreground hover:bg-muted transition"
