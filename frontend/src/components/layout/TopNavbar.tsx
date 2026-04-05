@@ -29,7 +29,11 @@ export function TopNavbar() {
         <span className="font-heading font-semibold text-foreground">{t("brand.name")}</span>
       </div>
 
-      <div className="hidden md:flex items-center gap-3">
+      <button
+        type="button"
+        className="hidden md:flex items-center gap-3 cursor-pointer"
+        onClick={() => navigate("/")}
+      >
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
           <span className="text-primary-foreground font-heading font-bold text-sm">AM</span>
         </div>
@@ -37,7 +41,7 @@ export function TopNavbar() {
           <p className="text-xs text-muted-foreground">{t("brand.name")}</p>
           <p className="text-sm font-semibold text-foreground leading-tight">{t(pageTitleKey)}</p>
         </div>
-      </div>
+      </button>
 
       <div className="flex items-center gap-3">
         <button

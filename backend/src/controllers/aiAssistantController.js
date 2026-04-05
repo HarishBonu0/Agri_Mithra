@@ -14,9 +14,10 @@ const parseJsonSafe = (value, fallback = {}) => {
 export const chatWithAssistant = async (req, res) => {
   try {
     const body = req.body || {};
-    const message = body.message || '';
+    const message = typeof body.message === 'string' ? body.message.trim() : '';
     const prompt = body.prompt || message;
-    const language = body.language || 'en';
+    const requestedLanguage = String(body.language || 'en').toLowerCase();
+    const language = ['en', 'te', 'hi', 'ta', 'kn'].includes(requestedLanguage) ? requestedLanguage : 'en';
     const weatherHint = body.weatherHint || '';
     const history = Array.isArray(body.history) ? body.history : parseJsonSafe(body.history, []);
 
@@ -24,6 +25,22 @@ export const chatWithAssistant = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'message is required',
+        requestId: req.requestId,
+      });
+    }
+
+    if (message.length > 2000) {
+      return res.status(422).json({
+        success: false,
+        message: 'message must be 2000 characters or less',
+        requestId: req.requestId,
+      });
+    }
+
+    if (!Array.isArray(history) || history.length > 30) {
+      return res.status(422).json({
+        success: false,
+        message: 'history must be an array with up to 30 items',
         requestId: req.requestId,
       });
     }

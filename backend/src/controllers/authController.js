@@ -2,13 +2,14 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { config } from '../config/env.js';
 
-const ADMIN_PHONE = '9182392500';
-const ADMIN_PASSWORD = 'harishbonu';
-
 const normalizePhone = (phone = '') => phone.replace(/^\+91/, '').trim();
 
-const isAdminCredentials = (phone, password) =>
-  normalizePhone(phone) === ADMIN_PHONE && password === ADMIN_PASSWORD;
+const isAdminCredentials = (phone, password) => {
+  const adminPhone = config.adminPhone;
+  const adminPassword = config.adminPassword;
+  if (!adminPhone || !adminPassword) return false;
+  return normalizePhone(phone) === adminPhone && password === adminPassword;
+};
 
 const generateToken = (userId, isAdmin = false) =>
   jwt.sign({ userId, isAdmin }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
@@ -96,9 +97,9 @@ export const login = async (req, res) => {
 
     if (adminLogin && !user) {
       user = await User.create({
-        name: 'Harish Admin',
-        phone: ADMIN_PHONE,
-        password: ADMIN_PASSWORD,
+        name: 'Admin',
+        phone: normalizePhone(phone),
+        password,
       });
       user = await User.findById(user._id).select('+password');
     }

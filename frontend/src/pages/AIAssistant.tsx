@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Bot, Send, Plus, Mic, Volume2, Paperclip, MessageSquare, Sparkles, Trash2, VolumeX } from "lucide-react";
+import { motion, AnimatePresence as MotionAnimatePresence } from "framer-motion";
+import { Bot, Send, Plus, Mic, Volume2, Paperclip, MessageSquare, Sparkles, Trash2, VolumeX, History, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -48,6 +48,15 @@ interface ChatSession {
 }
 
 type QueryMode = "text" | "voice";
+
+const cleanMessageText = (text: string): string =>
+  text
+    .replace(/\*\*(.+?)\*\*/g, "$1")   // **bold** → plain
+    .replace(/\*(.+?)\*/g, "$1")        // *italic* → plain
+    .replace(/#{1,6}\s+/g, "")          // ### headers → remove
+    .replace(/`{1,3}([^`]*)`{1,3}/g, "$1") // `code` → plain
+    .replace(/^\s*[-*]\s/gm, "• ")      // - item / * item → bullet
+    .trim();
 
 const detectVoiceLanguageHint = (text: string): AssistantLanguage | undefined => {
   if (!text) return undefined;
@@ -112,9 +121,11 @@ export default function AIAssistant() {
   const [recognizing, setRecognizing] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inFlightRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const activeSession = useMemo(
     () => sessions.find((s) => s.id === activeSessionId),
@@ -271,10 +282,11 @@ export default function AIAssistant() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeSession?.messages, typing]);
 
-  // ── Cleanup TTS and preview URL on unmount ────────────────────────────────────
+  // ── Cleanup TTS, abort controller, and preview URL on unmount ───────────────
   useEffect(() => {
     return () => {
       window.speechSynthesis.cancel();
+      if (abortControllerRef.current) abortControllerRef.current.abort();
       if (fileContext?.previewUrl) URL.revokeObjectURL(fileContext.previewUrl);
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
@@ -381,6 +393,10 @@ export default function AIAssistant() {
     setInput("");
     setTyping(true);
 
+    // Create a new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     // Build history from current session for context (exclude the greeting message, last 12 msgs)
     const history = (activeSession.messages || [])
       .filter((m, idx) => !(m.role === "bot" && idx === 0 && typeof m.id === "string" && m.id.startsWith("msg-")))
@@ -398,6 +414,7 @@ export default function AIAssistant() {
         fileContext: fileContext || undefined,
         token: token || undefined,
         history,
+        signal: abortController.signal,
       });
 
       const actions: ChatAction[] = [];
@@ -431,24 +448,28 @@ export default function AIAssistant() {
       if (queryMode === "voice") {
         await speakMessage(botMessage.text, result.language);
       }
-    } catch {
-      const fallbackText = t("ai.responses.defaultHelp");
-      updateActiveSession((s) => ({
-        ...s,
-        updatedAt: Date.now(),
-        messages: [
-          ...s.messages,
-          {
-            id: `msg-${Date.now()}-bot-err`,
-            role: "bot",
-            text: fallbackText,
-            actions: [{ labelKey: "ai.actions.openCropAssistant", to: "/assistant" }],
-          },
-        ],
-      }));
+    } catch (err: unknown) {
+      // Don't show error bubble when user manually cancelled
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      if (!isAbort) {
+        const fallbackText = t("ai.responses.defaultHelp");
+        updateActiveSession((s) => ({
+          ...s,
+          updatedAt: Date.now(),
+          messages: [
+            ...s.messages,
+            {
+              id: `msg-${Date.now()}-bot-err`,
+              role: "bot",
+              text: fallbackText,
+              actions: [{ labelKey: "ai.actions.openCropAssistant", to: "/assistant" }],
+            },
+          ],
+        }));
 
-      if (queryMode === "voice") {
-        await speakMessage(fallbackText);
+        if (queryMode === "voice") {
+          await speakMessage(fallbackText);
+        }
       }
     } finally {
       setTyping(false);
@@ -467,19 +488,28 @@ export default function AIAssistant() {
   };
 
   const startVoiceInput = async () => {
+    if (recognizing || typing) return;
+
+    if (speaking) {
+      stopSpeaking();
+    }
+
+    const preferredLanguage: AssistantLanguage = lang === "te" ? "te" : "en";
+    let transcript = "";
+
     try {
       setRecognizing(true);
-      const preferredLanguage: AssistantLanguage = lang === "te" ? "te" : "en";
-      const transcript = await handleVoiceInput({ preferredLanguage, apiBaseUrl });
-      if (!transcript) return;
-
-      // Voice mode: send immediately and return spoken answer automatically.
-      setInput(transcript);
-      const detectedVoiceLang = detectVoiceLanguageHint(transcript);
-      await send(transcript, "voice", detectedVoiceLang || preferredLanguage);
+      transcript = await handleVoiceInput({ preferredLanguage, apiBaseUrl, token: token || undefined });
     } finally {
       setRecognizing(false);
     }
+
+    if (!transcript) return;
+
+    // Voice mode: send immediately and return spoken answer automatically.
+    setInput(transcript);
+    const detectedVoiceLang = detectVoiceLanguageHint(transcript);
+    await send(transcript, "voice", detectedVoiceLang || preferredLanguage);
   };
 
   const speakMessage = async (
@@ -492,6 +522,7 @@ export default function AIAssistant() {
         text,
         preferredLanguage: preferredLanguage || (lang === "te" ? "te" : "en"),
         apiBaseUrl,
+        token: token || undefined,
       });
     } finally {
       setSpeaking(false);
@@ -499,8 +530,17 @@ export default function AIAssistant() {
   };
 
   const stopSpeaking = () => {
-    handleVoiceOutput({ text: "", preferredLanguage: "en", apiBaseUrl, stop: true });
+    handleVoiceOutput({ text: "", preferredLanguage: "en", apiBaseUrl, stop: true, token: token || undefined });
     setSpeaking(false);
+  };
+
+  const cancelTyping = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setTyping(false);
+    inFlightRef.current = false;
   };
 
   if (!isLoggedIn) {
@@ -521,8 +561,79 @@ export default function AIAssistant() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)] flex gap-4">
-      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
+    <div className="w-full max-w-6xl mx-auto h-[calc(100dvh-9.5rem)] sm:h-[calc(100dvh-10rem)] md:h-[calc(100vh-7.5rem)] flex gap-4 min-w-0">
+      {/* ── Mobile chat history overlay ──────────────────────────────────────── */}
+      <MotionAnimatePresence>
+        {mobileHistoryOpen && (
+          <>
+            <motion.div
+              key="overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/40 md:hidden"
+              onClick={() => setMobileHistoryOpen(false)}
+            />
+            <motion.aside
+              key="drawer"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed top-0 left-0 bottom-0 z-50 w-[80vw] max-w-xs bg-card border-r border-border shadow-2xl p-4 flex flex-col md:hidden"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-foreground">{t("ai.history")}</p>
+                <button
+                  onClick={() => setMobileHistoryOpen(false)}
+                  className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition"
+                  aria-label="Close history"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <button
+                onClick={() => { createNewChat(); setMobileHistoryOpen(false); }}
+                className="w-full mb-4 inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-medium hover:opacity-90 transition"
+              >
+                <Plus className="h-4 w-4" />
+                {t("ai.newChat")}
+              </button>
+              <div className="space-y-1.5 overflow-y-auto flex-1">
+                {sessions.map((session) => (
+                  <div key={session.id} className="group flex items-center gap-1">
+                    <button
+                      onClick={() => { void selectSession(session); setMobileHistoryOpen(false); }}
+                      className={`flex-1 text-left rounded-lg px-3 py-2 text-sm border transition truncate ${
+                        activeSessionId === session.id
+                          ? "bg-primary/10 border-primary/30 text-primary"
+                          : "bg-card border-border text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <span className="truncate block">{session.title || t("ai.newChat")}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const remaining = sessions.filter((s) => s.id !== session.id);
+                        if (token) api.chat.deleteSession(token, session.id).catch(() => {});
+                        const newList = remaining.length > 0 ? remaining : [createSession(t("ai.newChat"), t("ai.welcome"))];
+                        setSessions(newList);
+                        if (session.id === activeSessionId) setActiveSessionId(newList[0].id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive transition"
+                      aria-label="Delete chat"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </MotionAnimatePresence>
+
+      {/* ── Sidebar (desktop) ────────────────────────────────────────────────── */}
       <aside className="hidden md:flex w-72 glass-card p-4 flex-col">
         <button
           onClick={createNewChat}
@@ -571,25 +682,37 @@ export default function AIAssistant() {
       </aside>
 
       {/* ── Chat area ───────────────────────────────────────────────────────── */}
-      <section className="flex-1 glass-card p-4 md:p-5 flex flex-col min-h-0">
-        <div className="flex items-center justify-between pb-3 border-b border-border">
-          <div>
-            <h1 className="font-heading text-xl md:text-2xl font-bold text-foreground">{t("ai.title")}</h1>
-            <p className="text-sm text-muted-foreground">{t("ai.subtitle")}</p>
+      <section className="flex-1 glass-card p-3 sm:p-4 md:p-5 flex flex-col min-h-0 min-w-0 overflow-hidden">
+        <div className="flex items-center justify-between pb-3 border-b border-border gap-2 min-w-0">
+          <div className="min-w-0 flex-1">
+            <h1 className="font-heading text-base sm:text-xl md:text-2xl font-bold text-foreground truncate">{t("ai.title")}</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">{t("ai.subtitle")}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Mobile: icon-only History button */}
+            <button
+              onClick={() => setMobileHistoryOpen(true)}
+              className="md:hidden h-8 w-8 rounded-lg flex items-center justify-center bg-muted text-foreground hover:bg-muted/80 transition"
+              aria-label={t("ai.history")}
+              title={t("ai.history")}
+            >
+              <History className="h-4 w-4" />
+            </button>
+            {/* Mobile: New chat icon-only */}
             <button
               onClick={createNewChat}
-              className="md:hidden inline-flex items-center gap-1.5 rounded-lg px-3 py-2 bg-primary text-primary-foreground text-xs font-medium"
+              className="md:hidden h-8 w-8 rounded-lg flex items-center justify-center bg-primary text-primary-foreground hover:opacity-90 transition"
+              aria-label={t("ai.newChat")}
+              title={t("ai.newChat")}
             >
-              <Plus className="h-3.5 w-3.5" />
-              {t("ai.newChat")}
+              <Plus className="h-4 w-4" />
             </button>
             {activeSession && (
               <button
                 onClick={deleteCurrentSession}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
                 title="Delete this chat"
+                aria-label="Delete this chat"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -629,7 +752,9 @@ export default function AIAssistant() {
                 }`}
               >
                 {/* Message text */}
-                <div className="whitespace-pre-line leading-relaxed">{msg.text}</div>
+                <div className="whitespace-pre-line leading-relaxed">
+                  {msg.role === "bot" ? cleanMessageText(msg.text) : msg.text}
+                </div>
 
                 {/* File attachments */}
                 {msg.attachments?.map((a) => (
@@ -675,12 +800,20 @@ export default function AIAssistant() {
           ))}
 
           {typing && (
-            <div className="flex justify-start">
+            <div className="flex justify-start items-center gap-2">
               <div className="bg-white/70 border border-white/60 rounded-2xl rounded-bl-md px-4 py-3 flex gap-1.5 shadow-md">
                 <span className="typing-dot" />
                 <span className="typing-dot" />
                 <span className="typing-dot" />
               </div>
+              <button
+                onClick={cancelTyping}
+                className="h-8 w-8 flex items-center justify-center rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition shrink-0"
+                title={t("ai.stop")}
+                aria-label={t("ai.stop")}
+              >
+                <VolumeX className="h-4 w-4" />
+              </button>
             </div>
           )}
           <div ref={bottomRef} />
@@ -704,9 +837,9 @@ export default function AIAssistant() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 bg-white/75 backdrop-blur-lg shadow-md rounded-2xl border border-white/50 p-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-white/75 backdrop-blur-lg shadow-md rounded-2xl border border-white/50 p-2">
             {/* File attach */}
-            <label className="h-10 w-10 rounded-xl flex items-center justify-center hover:bg-muted transition cursor-pointer" title="Attach file">
+            <label className="h-9 w-9 shrink-0 rounded-xl flex items-center justify-center hover:bg-muted transition cursor-pointer" title="Attach file">
               <Paperclip className="h-4 w-4" />
               <input
                 type="file"
@@ -720,24 +853,26 @@ export default function AIAssistant() {
             <button
               onClick={startVoiceInput}
               disabled={recognizing}
-              className={`h-10 w-10 rounded-xl flex items-center justify-center transition ${
+              className={`h-9 w-9 shrink-0 rounded-xl flex items-center justify-center transition ${
                 recognizing ? "bg-primary/20 text-primary animate-pulse" : "hover:bg-muted"
               }`}
               title={t("ai.mic")}
+              aria-label={t("ai.mic")}
             >
               <Mic className="h-4 w-4" />
             </button>
 
-            {/* Stop speaking */}
-            {speaking ? (
+            {/* Stop speaking (only when active, to avoid extra width) */}
+            {speaking && (
               <button
                 onClick={stopSpeaking}
-                className="h-10 w-10 rounded-xl flex items-center justify-center bg-destructive/10 text-destructive hover:bg-destructive/20 transition"
+                className="h-9 w-9 shrink-0 rounded-xl flex items-center justify-center bg-destructive/10 text-destructive hover:bg-destructive/20 transition"
                 title={t("ai.stop")}
+                aria-label={t("ai.stop")}
               >
                 <VolumeX className="h-4 w-4" />
               </button>
-            ) : null}
+            )}
 
             {/* Text input */}
             <input
@@ -746,16 +881,17 @@ export default function AIAssistant() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && void send()}
               placeholder={t("ai.placeholder")}
-              className="flex-1 bg-transparent text-sm outline-none px-1 text-foreground placeholder:text-muted-foreground"
+              className="flex-1 min-w-0 bg-transparent text-sm outline-none px-1 text-foreground placeholder:text-muted-foreground"
             />
 
             {/* Send */}
             <button
               onClick={() => void send()}
               disabled={typing || (!input.trim() && !selectedFile)}
-              className="h-10 rounded-xl px-3 bg-gradient-to-r from-primary to-secondary text-primary-foreground flex items-center justify-center gap-1.5 hover:shadow-lg transition disabled:opacity-40"
+              className="h-9 w-9 sm:w-auto sm:px-3 shrink-0 rounded-xl bg-gradient-to-r from-primary to-secondary text-primary-foreground flex items-center justify-center gap-1.5 hover:shadow-lg transition disabled:opacity-40"
+              aria-label="Send"
             >
-              <Bot className="h-3.5 w-3.5" />
+              <Bot className="h-3.5 w-3.5 hidden sm:block" />
               <Send className="h-4 w-4" />
             </button>
           </div>

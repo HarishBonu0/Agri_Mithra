@@ -38,38 +38,39 @@ STRICT LANGUAGE CONSISTENCY (for voice output compatibility):
 - When responding in Kannada: every value must be Kannada script
 - NEVER write "Day 1-2", "Step", "Warning", "Note" in an Indian-language response — use the native equivalent
 
-ANSWER QUALITY:
-- Give COMPLETE answers — do not cut short, do not say "consult an expert" without first giving actual advice
-- Include specific quantities: grams/liters per acre, number of days, spacing in cm
+ANSWER QUALITY — MOST IMPORTANT RULES:
+- ALWAYS answer the question directly and completely. NEVER refuse to answer or say "I need more info first."
+- If any detail is missing (crop name, location, stage), make a reasonable assumption, state it briefly, then give the full answer.
+- Do NOT ask the farmer to clarify before answering. Give the best answer possible right now.
+- Include practical and safe guidance with timing and sequencing.
 - Use chemical/product names common in Indian markets (Mancozeb, Chlorpyrifos, DAP, Urea, etc.)
-- Always include safety precautions when mentioning pesticides
-- If a question is unclear, make a reasonable assumption and state it
-- Never promise specific yield numbers or profits
+- Always include safety precautions when mentioning pesticides.
+- Never provide exact pesticide dosage unless the farmer has provided crop, stage, and product label context.
+- Prefer: "follow label dose and local agriculture officer guidance" when details are incomplete.
+- Never promise specific yield numbers or profits.
+- For greetings or non-farming questions: respond warmly and briefly, skip farming sections.
 
 RESPONSE FORMAT — Return ONLY a valid JSON object, no markdown, no extra text:
 {
-  "quickSummary": "1-2 sentences that directly answer the question",
-  "whyThisAdvice": "2-3 sentences explaining the reasoning or science",
+  "quickSummary": "1-2 sentences that directly answer the question. For greetings just say hello warmly.",
+  "whyThisAdvice": "2-3 sentences explaining the reasoning. Leave empty string for greetings.",
   "whatToDoNow": [
-    "Numbered step with specific details, quantities, and timing",
-    "Step 2...",
-    "Step 3...",
-    "...include as many steps as needed for a complete answer"
+    "Specific step with quantities and timing. Keep empty [] when the query is informational and no action list is needed."
   ],
   "next7DaysPlan": [
-    "Day 1-2: specific actions (use native language equivalent of 'Day' when not responding in English)",
-    "Day 3-4: specific actions",
-    "Day 5-7: specific actions"
+    "Use native language equivalent of 'Day' for non-English. Keep empty [] unless a day-wise plan is genuinely useful."
   ],
   "warningSigns": [
-    "What to watch for and what to do if you see it",
-    "..."
+    "What to watch for. Empty array [] when not relevant."
   ],
   "confidenceLevel": "High",
-  "oneNextBestQuestion": "A specific follow-up question to help the farmer more"
+  "oneNextBestQuestion": "ONLY include a follow-up question if it would genuinely help give better advice next time. Leave as empty string if the answer is already complete."
 }
 
-CRITICAL: Do NOT limit array length. A thorough answer has 5-8 steps in whatToDoNow. Always fill all fields.`;
+CRITICAL:
+- Do NOT limit array length when actionable guidance is needed.
+- For informational questions (market trend, scheme eligibility concept, crop variety comparison, weather interpretation), avoid forced templates and keep irrelevant sections empty.
+- Do not repeat the same wording from previous assistant responses unless the farmer explicitly asks to repeat.`;
 
 // ─── Fallbacks ────────────────────────────────────────────────────────────────
 
@@ -118,18 +119,28 @@ const parseLlmResponse = (text, language) => {
 
     const parsed = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
 
+    const toStringList = (value) => {
+      if (!Array.isArray(value)) return [];
+      return value
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+    };
+
+    const rawConfidence = String(parsed.confidenceLevel || '').toLowerCase();
+    const confidenceLevel = rawConfidence === 'high'
+      ? 'High'
+      : rawConfidence === 'low'
+        ? 'Low'
+        : 'Medium';
+
     return {
-      quickSummary: parsed.quickSummary || fallback.quickSummary,
-      whyThisAdvice: parsed.whyThisAdvice || '',
-      whatToDoNow: Array.isArray(parsed.whatToDoNow) && parsed.whatToDoNow.length > 0
-        ? parsed.whatToDoNow.map(String)
-        : fallback.whatToDoNow,
-      next7DaysPlan: Array.isArray(parsed.next7DaysPlan) ? parsed.next7DaysPlan.map(String) : [],
-      warningSigns: Array.isArray(parsed.warningSigns) ? parsed.warningSigns.map(String) : [],
-      confidenceLevel: ['High', 'Medium', 'Low'].includes(parsed.confidenceLevel)
-        ? parsed.confidenceLevel
-        : 'Medium',
-      oneNextBestQuestion: parsed.oneNextBestQuestion || '',
+      quickSummary: String(parsed.quickSummary || '').trim() || fallback.quickSummary,
+      whyThisAdvice: String(parsed.whyThisAdvice || '').trim(),
+      whatToDoNow: toStringList(parsed.whatToDoNow),
+      next7DaysPlan: toStringList(parsed.next7DaysPlan),
+      warningSigns: toStringList(parsed.warningSigns),
+      confidenceLevel,
+      oneNextBestQuestion: String(parsed.oneNextBestQuestion || '').trim(),
     };
   } catch {
     // If JSON parse fails, try to build a plain-text response
@@ -140,7 +151,51 @@ const parseLlmResponse = (text, language) => {
   }
 };
 
+const dosagePattern = /(\b\d+(?:\.\d+)?\s*(?:ml|l|litre|liter|kg|g|gm)\s*(?:\/|per)\s*(?:acre|hectare)\b)/i;
+
+const enforceSafetyGuardrails = (response, language = 'en') => {
+  const out = { ...response };
+  const allLines = [
+    out.quickSummary || '',
+    out.whyThisAdvice || '',
+    ...(Array.isArray(out.whatToDoNow) ? out.whatToDoNow : []),
+    ...(Array.isArray(out.next7DaysPlan) ? out.next7DaysPlan : []),
+    ...(Array.isArray(out.warningSigns) ? out.warningSigns : []),
+  ].map((line) => String(line));
+
+  const hasExplicitDose = allLines.some((line) => dosagePattern.test(line));
+  if (!hasExplicitDose) return out;
+
+  const safetyLine = language === 'te'
+    ? 'పురుగు మందు ఖచ్చితమైన మోతాదు కోసం ప్యాకెట్ లేబుల్ సూచనలు మరియు స్థానిక వ్యవసాయ అధికారుల మార్గదర్శకాలు తప్పనిసరిగా అనుసరించండి.'
+    : 'For exact pesticide dose, follow product label instructions and local agriculture officer guidance.';
+
+  const deEmphasizeDose = (line) => (
+    dosagePattern.test(line)
+      ? `${line} (${safetyLine})`
+      : line
+  );
+
+  out.whatToDoNow = (Array.isArray(out.whatToDoNow) ? out.whatToDoNow : []).map((line) => deEmphasizeDose(String(line)));
+  out.warningSigns = Array.isArray(out.warningSigns) ? out.warningSigns : [];
+  if (!out.warningSigns.some((line) => String(line).includes(safetyLine))) {
+    out.warningSigns = [safetyLine, ...out.warningSigns];
+  }
+  if (out.confidenceLevel === 'High') {
+    out.confidenceLevel = 'Medium';
+  }
+  return out;
+};
+
 // ─── Build prompt with conversation history ───────────────────────────────────
+
+const LANGUAGE_LABELS = {
+  te: 'Telugu (తెలుగు)',
+  hi: 'Hindi (हिंदी)',
+  ta: 'Tamil (தமிழ்)',
+  kn: 'Kannada (ಕನ್ನಡ)',
+  en: 'English',
+};
 
 const buildPromptWithHistory = (currentMessage, language, history, weatherHint, fileMeta) => {
   const historyLines = (history || [])
@@ -148,10 +203,18 @@ const buildPromptWithHistory = (currentMessage, language, history, weatherHint, 
     .map((m) => `${m.role === 'user' ? 'Farmer' : 'Assistant'}: ${m.text}`)
     .join('\n');
 
+  const langLabel = LANGUAGE_LABELS[language] || 'English';
+
   const contextParts = [
     SYSTEM_PROMPT,
+    `\n=== MANDATORY LANGUAGE INSTRUCTION ===`,
+    `The farmer's selected UI language is: ${langLabel}`,
+    `YOU MUST respond ENTIRELY in ${langLabel}.`,
+    `Every JSON field value — quickSummary, whyThisAdvice, every item in whatToDoNow, next7DaysPlan, warningSigns, and oneNextBestQuestion — MUST be written in ${langLabel} script only.`,
+    language !== 'en'
+      ? `Do NOT use English words or sentences anywhere in the JSON values. If the farmer wrote in English, still respond in ${langLabel}.`
+      : '',
     historyLines ? `\n=== PREVIOUS CONVERSATION ===\n${historyLines}` : '',
-    `Language setting: ${language || 'en'}`,
     weatherHint ? `Current weather context: ${weatherHint}` : '',
     fileMeta ? `Farmer uploaded file: ${fileMeta.originalname || fileMeta.filename} (${fileMeta.mimetype})` : '',
     `\n=== FARMER'S CURRENT QUESTION ===\n${currentMessage}`,
@@ -183,5 +246,5 @@ export const generateAgricultureAssistantReply = async ({
     return getFallback(language);
   }
 
-  return parseLlmResponse(result.text, language);
+  return enforceSafetyGuardrails(parseLlmResponse(result.text, language), language);
 };

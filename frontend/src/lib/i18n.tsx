@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback } from "react";
 import { translations, type Lang } from "./translations";
 
 type InterpolationValues = Record<string, string | number>;
@@ -44,15 +44,11 @@ const I18nContext = createContext<I18nContextType>({
 });
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [lang, setLang] = useState<Lang>("en");
-
-  // Load language from localStorage on mount
-  useEffect(() => {
-    const savedLang = localStorage.getItem("agrimitra-lang") as Lang | null;
-    if (savedLang && (savedLang === "en" || savedLang === "te")) {
-      setLang(savedLang);
-    }
-  }, []);
+  // Initialize directly from localStorage to avoid a language-switch flash on load
+  const [lang, setLang] = useState<Lang>(() => {
+    const saved = localStorage.getItem("agrimitra-lang") as Lang | null;
+    return saved === "en" || saved === "te" ? saved : "en";
+  });
 
   const handleSetLang = (newLang: Lang) => {
     setLang(newLang);

@@ -32,6 +32,8 @@ const cropAnalysisSchema = new mongoose.Schema(
     },
 
     // ── Detection fields ──────────────────────────────────────────────────────
+    cropType: { type: String, default: 'Unknown crop' },
+    cropConfidence: { type: Number, default: 0, min: 0, max: 100 },
     diseaseLabel: { type: String, default: 'Unknown' },
     confidence: { type: Number, default: 0, min: 0, max: 100 },
 

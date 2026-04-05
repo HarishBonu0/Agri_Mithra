@@ -25,6 +25,18 @@ export const config = {
   get jwtSecret() { return process.env.JWT_SECRET; },
   jwtExpiresIn: '7d',
 
+  // Admin credentials — set ADMIN_PHONE and ADMIN_PASSWORD in .env; never hardcode in source
+  get adminPhone() {
+    const v = process.env.ADMIN_PHONE;
+    if (!v) console.warn('[Config] ADMIN_PHONE env var not set; admin login disabled');
+    return v || '';
+  },
+  get adminPassword() {
+    const v = process.env.ADMIN_PASSWORD;
+    if (!v) console.warn('[Config] ADMIN_PASSWORD env var not set; admin login disabled');
+    return v || '';
+  },
+
   // CORS — comma-separated list of allowed origins
   get allowedOrigins() {
     return process.env.ALLOWED_ORIGINS

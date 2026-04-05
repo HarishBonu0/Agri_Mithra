@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Sun, Cloud, CloudRain, Wind, Droplets, RefreshCw, MapPin, AlertCircle, Loader } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useWeather } from "@/hooks/useWeather";
+import { weatherService } from "@/lib/weatherService";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
@@ -38,6 +39,7 @@ export function WeatherWidget() {
     refreshWeather,
     setManualCity,
     clearError,
+    requestGeolocation,
   } = useWeather();
 
   const [locationInput, setLocationInput] = useState("");
@@ -52,16 +54,34 @@ export function WeatherWidget() {
 
   useEffect(() => {
     let active = true;
+    const hasTeluguScript = (text: string) => /[\u0C00-\u0C7F]/.test(text);
 
     const localizePlaceName = async () => {
-      const rawPlaceName = weather?.name || manualCity || "";
+      const rawPlaceName = manualCity
+        ? manualCity
+        : location
+          ? (location.city || "")
+          : (weather?.name || "");
 
       if (!rawPlaceName) {
         setDisplayPlaceName("");
         return;
       }
 
-      if (lang !== "te" || /[\u0C00-\u0C7F]/.test(rawPlaceName)) {
+      if (lang !== "te") {
+        // English UI must show English place names.
+        if (hasTeluguScript(rawPlaceName) && location && !manualCity) {
+          const englishFromCoords = await weatherService.reverseGeocodeLocation(location, "en");
+          if (!active) return;
+          setDisplayPlaceName(englishFromCoords || weather?.name || rawPlaceName);
+          return;
+        }
+
+        setDisplayPlaceName(rawPlaceName);
+        return;
+      }
+
+      if (hasTeluguScript(rawPlaceName)) {
         setDisplayPlaceName(rawPlaceName);
         return;
       }
@@ -96,7 +116,7 @@ export function WeatherWidget() {
     return () => {
       active = false;
     };
-  }, [weather?.name, manualCity, lang]);
+  }, [weather?.name, manualCity, location?.city, location?.lat, location?.lon, lang]);
 
   const handleLocationSubmit = () => {
     if (locationInput.trim()) {
@@ -204,19 +224,44 @@ export function WeatherWidget() {
           <span className="font-medium text-foreground">
             {displayPlaceName || t("weather.unknownLocation")}
           </span>
+          <button
+            onClick={() => { void requestGeolocation(); }}
+            disabled={loading}
+            className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 disabled:opacity-50 transition"
+          >
+            <MapPin className="h-3 w-3" />
+            {t("weather.detectLocation")}
+          </button>
         </div>
+
+        {location && !manualCity && (
+          <p className="text-[11px] text-muted-foreground">
+            GPS: {location.lat.toFixed(5)}, {location.lon.toFixed(5)}
+            {location.accuracy != null ? ` (${Math.round(location.accuracy)}m)` : ""}
+          </p>
+        )}
 
         {!manualCity && !weather && (
           <div className="bg-accent/10 border border-accent/20 rounded-lg p-2.5 text-xs">
-            <p className="text-accent-foreground font-medium mb-1.5">
+            <p className="text-accent-foreground font-medium mb-2">
               {t("weather.geoPermissionDenied")}
             </p>
-            <button
-              onClick={() => setShowInput(true)}
-              className="text-accent hover:underline font-medium"
-            >
-              {t("weather.manualLocation")} →
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => { void requestGeolocation(); }}
+                disabled={loading}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 transition"
+              >
+                <MapPin className="h-3 w-3" />
+                {t("weather.detectLocation")}
+              </button>
+              <button
+                onClick={() => setShowInput(true)}
+                className="text-accent hover:underline font-medium self-center"
+              >
+                {t("weather.manualLocation")} →
+              </button>
+            </div>
           </div>
         )}
 
@@ -226,7 +271,7 @@ export function WeatherWidget() {
               type="text"
               value={locationInput}
               onChange={(e) => setLocationInput(e.target.value)}
-              onKeyPress={(e) => {
+              onKeyDown={(e) => {
                 if (e.key === "Enter") handleLocationSubmit();
               }}
               placeholder={t("weather.locationPlaceholder")}

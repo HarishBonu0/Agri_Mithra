@@ -3,6 +3,134 @@ import analyzeWithRoboflow from '../services/roboflowService.js';
 import generateCropAdvisory, { detectDiseaseWithGemini } from '../services/geminiService.js';
 import { cleanupFile } from '../middleware/uploadMiddleware.js';
 
+const normalizeDiseaseLabel = (value = '') => String(value).toLowerCase().replace(/\s+/g, ' ').trim();
+
+const statusRank = {
+  unknown: 0,
+  low_confidence: 1,
+  confirmed: 2,
+};
+
+const pickBestDiagnosis = (roboflowDiagnosis, aiDiagnosis) => {
+  if (!aiDiagnosis) {
+    return {
+      diagnosis: roboflowDiagnosis,
+      source: 'roboflow',
+      note: 'roboflow_only',
+    };
+  }
+
+  const rfLabel = normalizeDiseaseLabel(roboflowDiagnosis?.diseaseLabel);
+  const aiLabel = normalizeDiseaseLabel(aiDiagnosis?.diseaseLabel);
+  const sameLabel = rfLabel && aiLabel && rfLabel === aiLabel;
+
+  if (sameLabel) {
+    const merged = {
+      ...roboflowDiagnosis,
+      cropType: aiDiagnosis.cropType || roboflowDiagnosis.cropType || 'Unknown crop',
+      cropConfidence: Number.isFinite(aiDiagnosis.cropConfidence) ? aiDiagnosis.cropConfidence : (roboflowDiagnosis.cropConfidence || 0),
+      confidence: Math.max(roboflowDiagnosis.confidence || 0, aiDiagnosis.confidence || 0),
+      diagnosisStatus:
+        (statusRank[aiDiagnosis.diagnosisStatus] || 0) > (statusRank[roboflowDiagnosis.diagnosisStatus] || 0)
+          ? aiDiagnosis.diagnosisStatus
+          : roboflowDiagnosis.diagnosisStatus,
+      topPredictions:
+        (Array.isArray(roboflowDiagnosis.topPredictions) && roboflowDiagnosis.topPredictions.length > 0)
+          ? roboflowDiagnosis.topPredictions
+          : aiDiagnosis.topPredictions || [],
+      raw: {
+        ...(roboflowDiagnosis.raw || {}),
+        aiCrossCheck: {
+          source: aiDiagnosis.provider || 'ai',
+          model: aiDiagnosis.model || '',
+          agreed: true,
+        },
+      },
+    };
+
+    return {
+      diagnosis: merged,
+      source: 'roboflow+ai',
+      note: 'agreement',
+    };
+  }
+
+  // Prefer a strong confirmed diagnosis over weaker alternatives.
+  if (
+    roboflowDiagnosis.diagnosisStatus === 'confirmed' &&
+    Number(roboflowDiagnosis.confidence || 0) >= 80
+  ) {
+    return {
+      diagnosis: {
+        ...roboflowDiagnosis,
+        cropType: aiDiagnosis.cropType || roboflowDiagnosis.cropType || 'Unknown crop',
+        cropConfidence: Number.isFinite(aiDiagnosis.cropConfidence) ? aiDiagnosis.cropConfidence : (roboflowDiagnosis.cropConfidence || 0),
+        raw: {
+          ...(roboflowDiagnosis.raw || {}),
+          aiCrossCheck: {
+            source: aiDiagnosis.provider || 'ai',
+            model: aiDiagnosis.model || '',
+            agreed: false,
+            aiLabel: aiDiagnosis.diseaseLabel,
+            aiConfidence: aiDiagnosis.confidence,
+          },
+        },
+      },
+      source: 'roboflow',
+      note: 'roboflow_strong_confirmed',
+    };
+  }
+
+  // If AI diagnosis is materially stronger, upgrade to AI diagnosis.
+  const aiIsStronger =
+    (statusRank[aiDiagnosis.diagnosisStatus] || 0) > (statusRank[roboflowDiagnosis.diagnosisStatus] || 0) ||
+    Number(aiDiagnosis.confidence || 0) - Number(roboflowDiagnosis.confidence || 0) >= 10;
+
+  if (aiIsStronger) {
+    return {
+      diagnosis: {
+        cropType: aiDiagnosis.cropType || roboflowDiagnosis.cropType || 'Unknown crop',
+        cropConfidence: Number.isFinite(aiDiagnosis.cropConfidence) ? aiDiagnosis.cropConfidence : (roboflowDiagnosis.cropConfidence || 0),
+        diseaseLabel: aiDiagnosis.diseaseLabel || roboflowDiagnosis.diseaseLabel,
+        confidence: Number.isFinite(aiDiagnosis.confidence) ? aiDiagnosis.confidence : roboflowDiagnosis.confidence,
+        diagnosisStatus: aiDiagnosis.diagnosisStatus || roboflowDiagnosis.diagnosisStatus,
+        topPredictions: Array.isArray(aiDiagnosis.topPredictions) ? aiDiagnosis.topPredictions : roboflowDiagnosis.topPredictions,
+        modelVersion: `${aiDiagnosis.provider || 'ai'}-vision:${aiDiagnosis.model || 'unknown'}`,
+        raw: {
+          ...(roboflowDiagnosis.raw || {}),
+          aiCrossCheck: {
+            source: aiDiagnosis.provider || 'ai',
+            model: aiDiagnosis.model || '',
+            agreed: false,
+            picked: 'ai',
+          },
+        },
+      },
+      source: aiDiagnosis.provider || 'ai',
+      note: 'ai_stronger',
+    };
+  }
+
+  return {
+    diagnosis: {
+      ...roboflowDiagnosis,
+      cropType: aiDiagnosis.cropType || roboflowDiagnosis.cropType || 'Unknown crop',
+      cropConfidence: Number.isFinite(aiDiagnosis.cropConfidence) ? aiDiagnosis.cropConfidence : (roboflowDiagnosis.cropConfidence || 0),
+      raw: {
+        ...(roboflowDiagnosis.raw || {}),
+        aiCrossCheck: {
+          source: aiDiagnosis.provider || 'ai',
+          model: aiDiagnosis.model || '',
+          agreed: false,
+          picked: 'roboflow',
+        },
+      },
+    },
+    source: 'roboflow',
+    note: 'roboflow_kept',
+  };
+};
+
 // ─── POST /api/crop/analyze ───────────────────────────────────────────────────
 
 export const analyzeCrop = async (req, res) => {
@@ -13,11 +141,13 @@ export const analyzeCrop = async (req, res) => {
   try {
     // Guard: no file uploaded
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Image file is required' });
+      return res.status(400).json({ success: false, message: 'Image file is required', requestId: req.requestId });
     }
 
     // Step 1: Roboflow — detect disease
     let diagnosis = {
+      cropType: 'Unknown crop',
+      cropConfidence: 0,
       diseaseLabel: 'Unknown crop condition',
       confidence: 0,
       diagnosisStatus: 'unknown',
@@ -30,6 +160,8 @@ export const analyzeCrop = async (req, res) => {
     try {
       const result = await analyzeWithRoboflow(filePath);
       diagnosis = {
+        cropType: result.cropType || diagnosis.cropType,
+        cropConfidence: Number.isFinite(result.cropConfidence) ? result.cropConfidence : diagnosis.cropConfidence,
         diseaseLabel: result.diseaseLabel || diagnosis.diseaseLabel,
         confidence: Number.isFinite(result.confidence) ? result.confidence : 0,
         diagnosisStatus: result.diagnosisStatus || diagnosis.diagnosisStatus,
@@ -42,27 +174,29 @@ export const analyzeCrop = async (req, res) => {
       detectionError = err.message || 'Detection failed';
     }
 
-    // Step 1B: Gemini Vision fallback — predict disease from image when Roboflow fails/uncertain
-    if (diagnosis.diagnosisStatus !== 'confirmed') {
+    // Step 1B: AI vision cross-check/fallback — improves robustness for uncertain or conflicting cases
+    if (diagnosis.diagnosisStatus !== 'confirmed' || diagnosis.confidence < 80) {
       try {
         const geminiDiagnosis = await detectDiseaseWithGemini({ imagePath: filePath });
-        if (geminiDiagnosis && (geminiDiagnosis.confidence >= diagnosis.confidence || diagnosis.diagnosisStatus === 'unknown')) {
+        if (geminiDiagnosis) {
+          const picked = pickBestDiagnosis(diagnosis, geminiDiagnosis);
           diagnosis = {
-            diseaseLabel: geminiDiagnosis.diseaseLabel || diagnosis.diseaseLabel,
-            confidence: Number.isFinite(geminiDiagnosis.confidence) ? geminiDiagnosis.confidence : diagnosis.confidence,
-            diagnosisStatus: geminiDiagnosis.diagnosisStatus || diagnosis.diagnosisStatus,
-            topPredictions: Array.isArray(geminiDiagnosis.topPredictions) ? geminiDiagnosis.topPredictions : diagnosis.topPredictions,
-            modelVersion: `${geminiDiagnosis.provider || 'ai'}-vision:${geminiDiagnosis.model || 'unknown'}`,
+            ...picked.diagnosis,
             raw: {
-              ...diagnosis.raw,
-              geminiFallback: {
+              ...(picked.diagnosis.raw || {}),
+              aiCrossCheck: {
+                ...(picked.diagnosis.raw?.aiCrossCheck || {}),
+                decision: picked.note,
                 notes: geminiDiagnosis.notes || '',
-                provider: geminiDiagnosis.provider || 'gemini',
-                model: geminiDiagnosis.model || '',
               },
             },
           };
-          detectionError = '';
+          if (picked.source !== 'roboflow') {
+            detectionError = '';
+          }
+          console.log(
+            `[Analyze] Detection fusion: source=${picked.source} note=${picked.note} label="${diagnosis.diseaseLabel}" confidence=${Number(diagnosis.confidence || 0).toFixed(1)}`
+          );
         }
       } catch (err) {
         console.error('[GeminiVision] Detection fallback failed:', err.message);
@@ -82,6 +216,8 @@ export const analyzeCrop = async (req, res) => {
     // Step 3: Build the final response payload
     const data = {
       disease: diagnosis.diseaseLabel,
+      cropType: diagnosis.cropType,
+      cropConfidence: Number(diagnosis.cropConfidence.toFixed(1)),
       confidence: Number(diagnosis.confidence.toFixed(1)),
       diagnosisStatus: diagnosis.diagnosisStatus,
       topPredictions: diagnosis.topPredictions,
@@ -117,6 +253,8 @@ export const analyzeCrop = async (req, res) => {
       user: req.user.userId,
       imagePath: req.file.filename,
       diseaseLabel: diagnosis.diseaseLabel,
+      cropType: diagnosis.cropType,
+      cropConfidence: Number(diagnosis.cropConfidence.toFixed(1)),
       confidence: Number(diagnosis.confidence.toFixed(1)),
       diagnosisStatus: diagnosis.diagnosisStatus,
       topPredictions: diagnosis.topPredictions,
@@ -143,7 +281,7 @@ export const analyzeCrop = async (req, res) => {
     console.error('[Analyze] Fatal error:', err.message);
     // Only send error if headers not already sent
     if (!res.headersSent) {
-      return res.status(500).json({ success: false, message: 'Server error during analysis' });
+      return res.status(500).json({ success: false, message: 'Server error during analysis', requestId: req.requestId });
     }
   }
 };
@@ -164,7 +302,7 @@ export const getCropHistory = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select('diseaseLabel confidence diagnosisStatus topPredictions explanation immediateActions weeklyPlan preventionChecklist lossReductionPlan warningSigns pesticideOptions teluguTranslation disclaimer imagePath createdAt'),
+        .select('cropType cropConfidence diseaseLabel confidence diagnosisStatus topPredictions explanation immediateActions weeklyPlan preventionChecklist lossReductionPlan warningSigns pesticideOptions teluguTranslation disclaimer imagePath createdAt'),
       CropAnalysis.countDocuments({ user: req.user.userId }),
     ]);
 
@@ -175,6 +313,6 @@ export const getCropHistory = async (req, res) => {
     });
   } catch (err) {
     console.error('[History] Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    return res.status(500).json({ success: false, message: 'Server error', requestId: req.requestId });
   }
 };

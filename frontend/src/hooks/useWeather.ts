@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { weatherService } from "@/lib/weatherService";
-import { WeatherResponse, LocationData } from "@/lib/weatherConfig";
+import { WeatherResponse, LocationData, WEATHER_CONFIG } from "@/lib/weatherConfig";
+import { useI18n } from "@/lib/i18n";
 
 export interface UseWeatherState {
   weather: WeatherResponse | null;
@@ -21,7 +22,9 @@ export function useWeather(): UseWeatherState & {
   refreshWeather: () => Promise<void>;
   setManualCity: (city: string) => void;
   clearError: () => void;
+  requestGeolocation: () => Promise<void>;
 } {
+  const { lang } = useI18n();
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -49,16 +52,24 @@ export function useWeather(): UseWeatherState & {
       ? weatherService.isDayNightFromIcon(weather.weather[0]?.icon || "d")
       : "day";
 
-  const loadWeather = useCallback(async () => {
+  const loadWeather = useCallback(async (cityOverride?: string) => {
     setLoading(true);
     setErrorKey(null);
+
+    const cityToLoad = cityOverride !== undefined ? cityOverride : manualCity;
+
+    // When loading by geolocation, clear previous data first so stale
+    // city/weather from an older session is never shown as current.
+    if (!cityToLoad) {
+      setWeather(null);
+      setLocation(null);
+    }
 
     try {
       let weatherData: WeatherResponse | null = null;
 
-      // If manual city is set, use that
-      if (manualCity) {
-        weatherData = await weatherService.fetchWeatherByCity(manualCity);
+      if (cityToLoad) {
+        weatherData = await weatherService.fetchWeatherByCity(cityToLoad);
         if (weatherData) {
           setLocation({
             lat: weatherData.coord.lat,
@@ -73,8 +84,9 @@ export function useWeather(): UseWeatherState & {
         const loc = await weatherService.getLocationWithPermission();
 
         if (loc) {
-          setLocation(loc);
-          weatherData = await weatherService.fetchWeather(loc);
+          const resolvedCity = await weatherService.reverseGeocodeLocation(loc, lang === "te" ? "te" : "en");
+          setLocation({ ...loc, city: resolvedCity || undefined });
+          weatherData = await weatherService.fetchWeather(loc, { forceRefresh: true });
         } else {
           setErrorKey("weather.geoPermissionDenied");
         }
@@ -82,19 +94,31 @@ export function useWeather(): UseWeatherState & {
 
       if (weatherData) {
         setWeather(weatherData);
-      } else if (!errorKey) {
-        setErrorKey("weather.fetchError");
+      } else {
+        setWeather(null);
+        if (!cityToLoad) setErrorKey("weather.fetchError");
       }
-    } catch (err) {
+    } catch {
+      setWeather(null);
       setErrorKey("weather.fetchError");
     } finally {
       setLoading(false);
     }
-  }, [manualCity, errorKey]);
+  }, [manualCity, lang]);
 
-  // Initial load on component mount
+  // Initial load — wipe both the saved location AND the weather data
+  // cache so the browser always requests a fresh GPS fix and fetches
+  // current-city data.  This prevents stale data from a previous
+  // session in a different city from ever being shown.
   useEffect(() => {
-    loadWeather();
+    // Reset manual-city mode on first mount so stale HMR/session state
+    // cannot lock the widget to an older city like "Razam".
+    setManualCity(null);
+    setWeather(null);
+    setLocation(null);
+    localStorage.removeItem(WEATHER_CONFIG.PERMISSION_KEY);
+    localStorage.removeItem("agrimitra-weather-cache");
+    loadWeather("");
   }, []);
 
   const refreshWeather = useCallback(async () => {
@@ -107,10 +131,40 @@ export function useWeather(): UseWeatherState & {
   const handleSetManualCity = useCallback((city: string) => {
     setManualCity(city);
     if (city.trim()) {
-      // Trigger load immediately
-      setTimeout(() => loadWeather(), 0);
+      weatherService.clearCache();
+      loadWeather(city);
     }
   }, [loadWeather]);
+
+  const requestGeolocation = useCallback(async () => {
+    // Clear saved location so the browser prompts for permission again
+    localStorage.removeItem(WEATHER_CONFIG.PERMISSION_KEY);
+    weatherService.clearCache();
+    setManualCity(null);
+    setWeather(null);
+    setErrorKey(null);
+    setLoading(true);
+
+    try {
+      const loc = await weatherService.getLocationWithPermission();
+      if (loc) {
+        const resolvedCity = await weatherService.reverseGeocodeLocation(loc, lang === "te" ? "te" : "en");
+        setLocation({ ...loc, city: resolvedCity || undefined });
+        const weatherData = await weatherService.fetchWeather(loc, { forceRefresh: true });
+        if (weatherData) {
+          setWeather(weatherData);
+        } else {
+          setErrorKey("weather.fetchError");
+        }
+      } else {
+        setErrorKey("weather.geoPermissionDenied");
+      }
+    } catch {
+      setErrorKey("weather.fetchError");
+    } finally {
+      setLoading(false);
+    }
+  }, [lang]);
 
   const clearError = useCallback(() => {
     setErrorKey(null);
@@ -132,5 +186,6 @@ export function useWeather(): UseWeatherState & {
     refreshWeather,
     setManualCity: handleSetManualCity,
     clearError,
+    requestGeolocation,
   };
 }

@@ -56,13 +56,13 @@ export default function SchemeFinder() {
       isIndianResident: true,
       farmerType: "landowner",
       hasCropCultivation: true,
-      hasCropInsuranceNeed: true,
-      needsIrrigation: true,
+      hasCropInsuranceNeed: false,
+      needsIrrigation: false,
       hasAadhaar: form.hasAadhaar === "yes",
       hasBankAccount: form.hasBankAccount === "yes",
       hasLandProof: true,
       isRegisteredCultivator: true,
-      hasEnrolledBeforeSeason: true,
+      hasEnrolledBeforeSeason: false,
       enteredAnnualIncome: form.annualIncome,
       ...(form.landUnit === "acres"
         ? { landAcres: landValue }
@@ -85,14 +85,14 @@ export default function SchemeFinder() {
   ];
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="w-full max-w-2xl mx-auto min-w-0">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="space-y-6 p-4"
       >
         <div className="space-y-2">
-          <h1 className="font-heading text-3xl md:text-4xl font-bold text-foreground flex items-center gap-3">
+          <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold text-foreground flex items-center gap-2">
             <Sprout className="h-8 w-8 text-primary" />
             {t("schemes.title")}
           </h1>
@@ -101,7 +101,7 @@ export default function SchemeFinder() {
           </p>
         </div>
 
-        <div className="rounded-3xl border border-border bg-card/80 backdrop-blur-md shadow-lg p-8 space-y-6">
+        <div className="rounded-3xl border border-border bg-card/80 backdrop-blur-md shadow-lg p-4 sm:p-8 space-y-6">
           <h2 className="text-xl font-semibold text-foreground">
             {t("schemes.profile")}
           </h2>

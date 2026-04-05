@@ -123,7 +123,7 @@ export default function News() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5 px-2 sm:px-0">
+    <div className="w-full max-w-5xl mx-auto space-y-5 min-w-0">
       <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground">{t("news.title")}</h1>
 
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">

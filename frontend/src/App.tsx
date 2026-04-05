@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { I18nProvider } from "@/lib/i18n";
-import { AuthProvider } from "@/lib/auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -18,8 +18,28 @@ import AIAssistant from "./pages/AIAssistant";
 import NotFound from "./pages/NotFound";
 import SchemeResults from "./pages/SchemeResults";
 import AdminDashboard from "./pages/AdminDashboard";
+import GuestPreview from "./pages/GuestPreview";
 
 const queryClient = new QueryClient();
+
+// Renders children only after auth state is resolved; redirects unauthenticated users to /login
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isLoggedIn, authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f6fff8] to-[#eef7f0]">
+        <div className="w-10 h-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -36,63 +56,78 @@ const App = () => (
           >
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/preview" element={<GuestPreview />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route
                 path="/dashboard"
                 element={
-                  <AppLayout>
-                    <Dashboard />
-                  </AppLayout>
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Dashboard />
+                    </AppLayout>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/assistant"
                 element={
-                  <AppLayout>
-                    <CropAssistant />
-                  </AppLayout>
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <CropAssistant />
+                    </AppLayout>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/schemes"
                 element={
-                  <AppLayout>
-                    <SchemeFinder />
-                  </AppLayout>
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <SchemeFinder />
+                    </AppLayout>
+                  </ProtectedRoute>
                 }
               />
-                <Route
-                  path="/scheme-results"
-                  element={
+              <Route
+                path="/scheme-results"
+                element={
+                  <ProtectedRoute>
                     <AppLayout>
                       <SchemeResults />
                     </AppLayout>
-                  }
-                />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/news"
                 element={
-                  <AppLayout>
-                    <News />
-                  </AppLayout>
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <News />
+                    </AppLayout>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/ai-assistant"
                 element={
-                  <AppLayout>
-                    <AIAssistant />
-                  </AppLayout>
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <AIAssistant />
+                    </AppLayout>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/admin"
                 element={
-                  <AppLayout>
-                    <AdminDashboard />
-                  </AppLayout>
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <AdminDashboard />
+                    </AppLayout>
+                  </ProtectedRoute>
                 }
               />
               <Route path="*" element={<NotFound />} />

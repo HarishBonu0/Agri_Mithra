@@ -79,6 +79,9 @@ export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const welcomeHeading = user?.name
+    ? t("dashboard.greetingName", { name: user.name })
+    : t("dashboard.greetingFallback");
 
   const quickActions = [
     { key: "dashboard.scan_crop", icon: Scan, color: "bg-primary/10 text-primary", to: "/assistant" },
@@ -158,14 +161,13 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-7 pb-8">
+    <div className="w-full max-w-5xl mx-auto space-y-5 sm:space-y-7 pb-8 min-w-0">
       {/* Header with logout */}
       <motion.div initial="hidden" animate="show" custom={0} variants={fadeUp} className="flex items-center justify-between">
         <div>
           <h1 className="font-heading text-2xl md:text-3xl font-bold text-foreground">
-            {t("dashboard.welcome")} 👋
+            {welcomeHeading} 👋
           </h1>
-          {user && <p className="text-muted-foreground text-sm mt-1">{t("dashboard.welcome").split(",")[0]}, {user.name}</p>}
           <p className="text-muted-foreground text-sm mt-1">{t("dashboard.subtitle")}</p>
         </div>
         <button
@@ -173,7 +175,7 @@ export default function Dashboard() {
           className="flex items-center gap-2 rounded-full border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 hover:border-destructive/50 transition"
         >
           <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">Logout</span>
+          <span className="hidden sm:inline">{t("dashboard.logout")}</span>
         </button>
       </motion.div>
 
@@ -186,17 +188,17 @@ export default function Dashboard() {
         <motion.div initial="hidden" animate="show" custom={2} variants={fadeUp} className="md:col-span-2">
           <div className="glass-card p-4 sm:p-6">
             <h3 className="font-heading font-semibold text-sm text-muted-foreground mb-5">{t("dashboard.quick_actions")}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {quickActions.map((action) => (
                 <button
                   key={action.key}
                   onClick={() => navigate(action.to)}
-                  className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white hover:scale-105 hover:shadow-lg transition-all duration-300 active:scale-95 group"
+                  className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white hover:scale-105 hover:shadow-lg transition-all duration-300 active:scale-95 group"
                 >
                   <div className={`w-10 h-10 rounded-xl ${action.color} flex items-center justify-center group-hover:scale-110 transition`}>
                     <action.icon className="h-5 w-5" />
                   </div>
-                  <span className="text-sm font-medium text-foreground">{t(action.key)}</span>
+                  <span className="text-xs sm:text-sm font-medium text-foreground text-center leading-tight">{t(action.key)}</span>
                 </button>
               ))}
             </div>
@@ -311,7 +313,7 @@ export default function Dashboard() {
           {headlinesLoading ? (
             <p className="text-sm text-muted-foreground">{t("dashboard.loadingHeadlines")}</p>
           ) : headlinesError ? (
-            <p className="text-sm text-destructive">{headlinesError}</p>
+            <p className="text-sm text-destructive">{t("dashboard.noHeadlines")}</p>
           ) : headlines.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("dashboard.noHeadlines")}</p>
           ) : (

@@ -244,6 +244,69 @@ const chooseLocalizedList = (items, fallbackList, language) => {
   return hasTelugu ? cleaned : fallbackList;
 };
 
+const translateTextToTelugu = async (text) => {
+  if (!text || !String(text).trim() || containsTelugu(text)) {
+    return text;
+  }
+
+  try {
+    const response = await fetch(
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=te&dt=t&q=${encodeURIComponent(String(text))}`,
+    );
+
+    if (!response.ok) {
+      return text;
+    }
+
+    const payload = await response.json();
+    const translated = Array.isArray(payload?.[0])
+      ? payload[0].map((chunk) => chunk?.[0] || '').join('')
+      : '';
+
+    return translated || text;
+  } catch {
+    return text;
+  }
+};
+
+const ensureTeluguAdvisory = async (advisory, language = 'en') => {
+  if (language !== 'te' || !advisory) {
+    return advisory;
+  }
+
+  const translateList = async (items = []) => {
+    if (!Array.isArray(items) || items.length === 0) return [];
+    const translated = await Promise.all(items.map((item) => translateTextToTelugu(item)));
+    return translated.filter((item) => typeof item === 'string' && item.trim());
+  };
+
+  const translatedOptions = Array.isArray(advisory.pesticideOptions)
+    ? await Promise.all(
+        advisory.pesticideOptions.map(async (option) => ({
+          name: option?.name || '',
+          useWhen: await translateTextToTelugu(option?.useWhen || ''),
+          dosage: await translateTextToTelugu(option?.dosage || ''),
+          timing: await translateTextToTelugu(option?.timing || ''),
+          safety: await translateTextToTelugu(option?.safety || ''),
+        }))
+      )
+    : [];
+
+  return {
+    ...advisory,
+    whatIsHappening: await translateTextToTelugu(advisory.whatIsHappening),
+    whyItHappens: await translateTextToTelugu(advisory.whyItHappens),
+    immediateActions: await translateList(advisory.immediateActions),
+    weeklyPlan: await translateList(advisory.weeklyPlan),
+    preventionChecklist: await translateList(advisory.preventionChecklist),
+    lossReductionPlan: await translateList(advisory.lossReductionPlan),
+    warningSigns: await translateList(advisory.warningSigns),
+    pesticideOptions: translatedOptions,
+    teluguSummary: await translateTextToTelugu(advisory.teluguSummary),
+    disclaimer: await translateTextToTelugu(advisory.disclaimer),
+  };
+};
+
 const parseGeminiJson = (text, fallback, language = 'en') => {
   try {
     const cleaned = text.replace(/```json|```/g, '').trim();
@@ -330,6 +393,8 @@ const parseDiseaseJson = (text) => {
 
   return {
     diseaseLabel: String(parsed.diseaseLabel || topPredictions[0]?.label || 'Unknown crop condition').trim(),
+    cropType: String(parsed.cropType || parsed.crop || 'Unknown crop').trim(),
+    cropConfidence: Math.max(0, Math.min(100, Number(parsed.cropConfidence || 0))),
     confidence: normalizedConfidence,
     diagnosisStatus,
     topPredictions: topPredictions.slice(0, 5),
@@ -351,6 +416,8 @@ export const detectDiseaseWithGemini = async ({ imagePath }) => {
   const prompt = `You are a plant pathology assistant.
 Analyze this crop leaf/plant image and return ONLY valid JSON:
 {
+  "cropType": "most likely crop name",
+  "cropConfidence": 0,
   "diseaseLabel": "most likely disease or deficiency name",
   "confidence": 0,
   "diagnosisStatus": "confirmed|low_confidence|unknown",
@@ -360,6 +427,7 @@ Analyze this crop leaf/plant image and return ONLY valid JSON:
   "notes": "short explanation"
 }
 Rules:
+- cropConfidence range: 0 to 100
 - confidence range: 0 to 100
 - include 3 to 5 topPredictions when possible
 - if image quality is poor or diagnosis is unclear, set diagnosisStatus to unknown
@@ -478,10 +546,11 @@ const generateCropAdvisory = async ({ diseaseLabel, diagnosisStatus, confidence,
   });
 
   if (result?.text) {
-    return parseGeminiJson(result.text, fallback, language);
+    const parsed = parseGeminiJson(result.text, fallback, language);
+    return ensureTeluguAdvisory(parsed, language);
   }
 
-  return fallback;
+  return ensureTeluguAdvisory(fallback, language);
 };
 
 export default generateCropAdvisory;

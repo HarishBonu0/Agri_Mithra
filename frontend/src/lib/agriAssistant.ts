@@ -12,10 +12,14 @@ interface SpeechRecognitionEventLike extends Event {
 
 interface SpeechRecognitionLike {
   lang: string;
+  continuous?: boolean;
+  interimResults?: boolean;
+  maxAlternatives?: number;
   start: () => void;
   stop: () => void;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onerror: (() => void) | null;
+  onend?: (() => void) | null;
 }
 
 declare global {
@@ -455,6 +459,22 @@ const teluguSafeLine = (line: string): string => {
   return "దయచేసి పంటను గమనించి ఈ రోజు జాగ్రత్తగా చర్యలు తీసుకోండి.";
 };
 
+// Generic filler questions the AI tends to produce that add no value.
+const GENERIC_QUESTION_PATTERNS = [
+  /which crop are you (currently )?growing/i,
+  /what crop (are you|do you)/i,
+  /ఏ పంట/,
+  /what is (your|the) (current )?crop/i,
+  /can you (share|tell|provide)/i,
+  /please (share|tell|provide)/i,
+  /మీరు ఏ పంట/,
+  /which district/i,
+  /what (is|are) (your|the) (growth )?stage/i,
+];
+
+const isGenericFollowUp = (q: string): boolean =>
+  !q || q.trim().length < 8 || GENERIC_QUESTION_PATTERNS.some((p) => p.test(q));
+
 const buildFullFarmerMessage = (
   sections: FarmerAdviceSections,
   language: AssistantLanguage
@@ -467,12 +487,12 @@ const buildFullFarmerMessage = (
     parts.push(normalizeForLanguage(sections.quickSummary, language));
   }
 
-  // Why this advice
-  if (sections.whyThisAdvice && sections.whyThisAdvice.trim().length > 3) {
+  // Why this advice — skip if empty or very short
+  if (sections.whyThisAdvice && sections.whyThisAdvice.trim().length > 10) {
     parts.push(`\n${titles.whyThisAdvice}:\n${normalizeForLanguage(sections.whyThisAdvice, language)}`);
   }
 
-  // What to do now — ALL steps, not truncated
+  // What to do now — skip if empty (e.g. greetings)
   if (sections.whatToDoNow && sections.whatToDoNow.length > 0) {
     const steps = sections.whatToDoNow
       .map((s, i) => `${i + 1}. ${normalizeForLanguage(s, language)}`)
@@ -480,7 +500,7 @@ const buildFullFarmerMessage = (
     parts.push(`\n${titles.whatToDoNow}:\n${steps}`);
   }
 
-  // 7-day plan
+  // 7-day plan — skip if empty
   if (sections.next7DaysPlan && sections.next7DaysPlan.length > 0) {
     const plan = sections.next7DaysPlan
       .map((s) => `• ${normalizeForLanguage(s, language)}`)
@@ -488,7 +508,7 @@ const buildFullFarmerMessage = (
     parts.push(`\n${titles.next7DaysPlan}:\n${plan}`);
   }
 
-  // Warning signs — ALL of them
+  // Warning signs — skip if empty
   if (sections.warningSigns && sections.warningSigns.length > 0) {
     const warnings = sections.warningSigns
       .map((s) => `⚠ ${normalizeForLanguage(s, language)}`)
@@ -496,9 +516,11 @@ const buildFullFarmerMessage = (
     parts.push(`\n${titles.warningSigns}:\n${warnings}`);
   }
 
-  // Follow-up question
-  if (sections.oneNextBestQuestion && sections.oneNextBestQuestion.trim().length > 3) {
-    parts.push(`\n💬 ${normalizeForLanguage(sections.oneNextBestQuestion, language)}`);
+  // Follow-up question — ONLY show when it is a genuinely useful
+  // contextual question, not a generic "which crop are you growing" template.
+  const followUp = sections.oneNextBestQuestion?.trim() ?? "";
+  if (followUp.length > 8 && !isGenericFollowUp(followUp)) {
+    parts.push(`\n💬 ${normalizeForLanguage(followUp, language)}`);
   }
 
   return parts.join("").trim();
@@ -550,9 +572,9 @@ export const buildAgriculturePrompt = (payload: {
     `Weather Context: ${weatherHint || "not available"}`,
     `File Evidence: ${fileContext ? JSON.stringify(fileContext) : "none"}`,
     `User Question: ${userMessage}`,
-    analysis.clarifyingQuestions.length > 0
-      ? `If required, ask max 1-2 clarifying questions from: ${analysis.clarifyingQuestions.join(" | ")}`
-      : "",
+    // Do NOT ask the user to clarify before answering. Always give a
+    // direct, complete answer based on reasonable assumptions.
+    `IMPORTANT: Answer the question directly and completely now. Do NOT ask the farmer to provide more details first.`,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -571,23 +593,21 @@ export const formatFarmerResponse = (
   const confidence = parsed.confidenceLevel;
   const validConfidence = confidence === "High" || confidence === "Medium" || confidence === "Low";
 
+  const normalizeList = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+  };
+
   return {
     quickSummary: parsed.quickSummary || safeFallback.quickSummary,
-    whyThisAdvice: parsed.whyThisAdvice || safeFallback.whyThisAdvice,
-    whatToDoNow:
-      Array.isArray(parsed.whatToDoNow) && parsed.whatToDoNow.length > 0
-        ? parsed.whatToDoNow.map(String)
-        : safeFallback.whatToDoNow,
-    next7DaysPlan:
-      Array.isArray(parsed.next7DaysPlan) && parsed.next7DaysPlan.length > 0
-        ? parsed.next7DaysPlan.map(String)
-        : safeFallback.next7DaysPlan,
-    warningSigns:
-      Array.isArray(parsed.warningSigns) && parsed.warningSigns.length > 0
-        ? parsed.warningSigns.map(String)
-        : safeFallback.warningSigns,
-    confidenceLevel: validConfidence ? confidence : "Low",
-    oneNextBestQuestion: parsed.oneNextBestQuestion || fallbackQuestion,
+    whyThisAdvice: parsed.whyThisAdvice || "",
+    whatToDoNow: normalizeList(parsed.whatToDoNow),
+    next7DaysPlan: normalizeList(parsed.next7DaysPlan),
+    warningSigns: normalizeList(parsed.warningSigns),
+    confidenceLevel: validConfidence ? confidence : "Medium",
+    oneNextBestQuestion: parsed.oneNextBestQuestion || "",
   };
 };
 
@@ -622,8 +642,8 @@ export const callAIAPI = async (payload: {
   token?: string;
   history?: Array<{ role: "user" | "bot"; text: string }>;
 }): Promise<FarmerAdviceSections> => {
-  const fallbackQuestion =
-    payload.analysis.clarifyingQuestions[0] || "What crop and growth stage should I consider?";
+  // Empty string — we no longer inject a generic fallback question into every response.
+  const fallbackQuestion = "";
 
   const authHeaders: Record<string, string> = {};
   if (payload.token) authHeaders["Authorization"] = `Bearer ${payload.token}`;
@@ -676,6 +696,7 @@ export const handleVoiceInput = async (payload: {
   preferredLanguage: AssistantLanguage;
   apiBaseUrl: string;
   onInterim?: (text: string) => void;
+  token?: string;
 }): Promise<string> => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -691,23 +712,84 @@ export const handleVoiceInput = async (payload: {
         : payload.preferredLanguage === "kn"
         ? "kn-IN"
         : "en-IN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
     return new Promise((resolve, reject) => {
+      let settled = false;
+      let latestTranscript = "";
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+      const cleanup = () => {
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      };
+
+      const resolveOnce = (text: string) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(text);
+      };
+
+      const rejectOnce = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
+      };
+
       recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript.trim();
+        const transcript = event?.results?.[0]?.[0]?.transcript?.trim() || "";
+        latestTranscript = transcript;
         payload.onInterim?.(transcript);
-        resolve(transcript);
+        if (transcript) {
+          try {
+            recognition.stop();
+          } catch {
+            // Ignore stop errors from browser implementations.
+          }
+          resolveOnce(transcript);
+        }
       };
+
       recognition.onerror = () => {
-        reject(new Error("speech-recognition-failed"));
+        rejectOnce(new Error("speech-recognition-failed"));
       };
+
+      recognition.onend = () => {
+        if (latestTranscript) {
+          resolveOnce(latestTranscript);
+          return;
+        }
+        rejectOnce(new Error("speech-recognition-no-input"));
+      };
+
+      timeoutId = setTimeout(() => {
+        try {
+          recognition.stop();
+        } catch {
+          // Ignore stop errors from browser implementations.
+        }
+        rejectOnce(new Error("speech-recognition-timeout"));
+      }, 15000);
+
       recognition.start();
     });
   }
 
   const sttResp = await fetch(`${payload.apiBaseUrl}/api/ai-assistant/stt`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(payload.token ? { Authorization: `Bearer ${payload.token}` } : {}),
+    },
     body: JSON.stringify({ language: payload.preferredLanguage }),
   });
 
@@ -743,9 +825,10 @@ const cleanForTts = (text: string, language: AssistantLanguage): string => {
 
   // Strip formatting symbols and numbered list prefixes in one pass
   let cleaned = text
-    .replace(/[•⚠💬✔*#`_~]/g, " ")
+    .replace(/[•⚠✔*#`_~]/g, " ")
+    .replace(/\u{1F4AC}/gu, " ")
     .replace(/^\d+\.\s*/gm, "")
-    .replace(/^[•\-]\s*/gm, "");
+    .replace(/^[•-]\s*/gm, "");
 
   const isIndian = language === "te" || language === "hi" || language === "ta" || language === "kn";
 
@@ -757,7 +840,9 @@ const cleanForTts = (text: string, language: AssistantLanguage): string => {
         if (!line || line.length < 2) return false;
         // Count only letter characters (ignore digits, spaces, punctuation)
         const asciiLetters = (line.match(/[A-Za-z]/g) || []).length;
-        const nativeLetters = (line.match(/[\u0900-\u097F\u0C00-\u0C7F\u0B80-\u0BFF\u0C80-\u0CFF]/g) || []).length;
+        const nativeLetters = (
+          line.match(/\p{Script=Devanagari}|\p{Script=Telugu}|\p{Script=Tamil}|\p{Script=Kannada}/gu) || []
+        ).length;
         const totalLetters = asciiLetters + nativeLetters;
         // Keep the line only if native script makes up at least 40% of letters
         return totalLetters > 0 && nativeLetters / totalLetters >= 0.4;
@@ -788,7 +873,8 @@ const splitIntoChunks = (text: string): string[] => {
     if (remaining.length <= 200) { chunks.push(remaining); break; }
     let cut = 200;
     for (let i = 199; i > 100; i--) {
-      if (/[.!?।\s,]/.test(remaining[i])) { cut = i + 1; break; }
+      const ch = remaining[i];
+      if (/[.!?\s,]/.test(ch) || ch === "।") { cut = i + 1; break; }
     }
     const chunk = remaining.slice(0, cut).trim();
     if (chunk) chunks.push(chunk);
@@ -801,11 +887,19 @@ const splitIntoChunks = (text: string): string[] => {
  * Play a chunk via the backend TTS proxy (server calls Google TTS, avoids browser CORS).
  * Returns an Audio element on success, null on failure.
  */
-const playViaBackend = (chunk: string, language: AssistantLanguage, apiBaseUrl: string): Promise<HTMLAudioElement | null> =>
+const playViaBackend = (
+  chunk: string,
+  language: AssistantLanguage,
+  apiBaseUrl: string,
+  token?: string,
+): Promise<HTMLAudioElement | null> =>
   new Promise((resolve) => {
     fetch(`${apiBaseUrl}/api/ai-assistant/tts`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ text: chunk, language }),
     })
       .then((res) => {
@@ -838,6 +932,7 @@ export const handleVoiceOutput = async (payload: {
   preferredLanguage: AssistantLanguage;
   apiBaseUrl: string;
   stop?: boolean;
+  token?: string;
 }): Promise<void> => {
   // Stop any current playback
   if (currentAudio) {
@@ -861,7 +956,7 @@ export const handleVoiceOutput = async (payload: {
   if (isIndian) {
     // Route through backend proxy — works for all Indian scripts without browser voice
     for (const chunk of chunks) {
-      const audio = await playViaBackend(chunk, payload.preferredLanguage, payload.apiBaseUrl);
+      const audio = await playViaBackend(chunk, payload.preferredLanguage, payload.apiBaseUrl, payload.token);
       if (!audio) break; // proxy unavailable, stop silently
       currentAudio = audio;
       await waitForAudio(audio);

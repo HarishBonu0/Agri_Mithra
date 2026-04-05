@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import fetchAndSummarizeNews from '../services/newsService.js';
+import protect from '../middleware/authMiddleware.js';
 
 const router = Router();
-
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
 const AGRI_TERMS = [
   'agriculture',
@@ -86,6 +85,43 @@ const IRRELEVANT_TERMS = [
   'baseball',
   'basketball',
   'tennis',
+  'horoscope',
+  'astrology',
+  'zodiac',
+  'murder',
+  'suicide',
+  'crime',
+  'arrest',
+  'celeb',
+  'entertainment',
+  'bollywood',
+  'theft',
+  'dies',
+  'death',
+  'killed',
+  'hanged',
+  'daughter',
+  'complaint',
+  'custody',
+  'assault',
+  'rape',
+];
+
+const IRRELEVANT_TITLE_PATTERNS = [
+  /\bhoroscope\b/i,
+  /\bzodiac\b/i,
+  /\bcrime\b/i,
+  /\bmurder\b/i,
+  /\barrest(ed)?\b/i,
+  /\btheft\b/i,
+  /\bhanged\b/i,
+  /\bdeath\b/i,
+  /\bdies\b/i,
+  /\bdaughter\b/i,
+  /\bcelebrity\b/i,
+  /\bmatch\b/i,
+  /\bmovie\b/i,
+  /\bipl\b/i,
 ];
 
 const TRUSTED_AGRI_DOMAINS = [
@@ -394,8 +430,17 @@ const scoreArticle = (article, allowedDomains, strongTerms, minimumScore, allowe
   const sourceName = normalize(article.source?.name);
   const sourceUrl = article.source?.url || article.url || '';
   const combined = `${title} ${description} ${content} ${sourceName}`.trim();
+  const strongAgriHits = countMatches(combined, STRONG_TERMS);
 
   if (!title || !article.url) {
+    return -100;
+  }
+
+  if (IRRELEVANT_TITLE_PATTERNS.some((p) => p.test(title))) {
+    return -100;
+  }
+
+  if (isIrrelevant(combined) && strongAgriHits < 2) {
     return -100;
   }
   const isAllowedDomain = allowedDomains.some((domain) => {
@@ -748,6 +793,30 @@ router.get('/headlines', async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       error: error.message || 'Failed to fetch agriculture news',
+    });
+  }
+});
+
+router.get('/', protect, async (req, res) => {
+  try {
+    const lang = String(req.query.lang || 'en').toLowerCase().startsWith('te') ? 'te' : 'en';
+    const articles = await fetchAndSummarizeNews({ lang });
+
+    return res.json({
+      success: true,
+      message: 'News fetched successfully',
+      requestId: req.requestId,
+      data: (Array.isArray(articles) ? articles : []).map((item) => ({
+        ...item,
+        category: item.category || inferCategory(`${item.title || ''} ${item.summary || ''}`),
+        publishedAt: item.publishedAt || new Date().toISOString(),
+      })),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch agriculture news',
+      requestId: req.requestId,
     });
   }
 });

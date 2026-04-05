@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Languages, Sprout, ScrollText, Newspaper, ScanLine, Landmark, MessageSquareText } from "lucide-react";
+import { Languages, Sprout, ScrollText, Newspaper, ScanLine, Landmark, MessageSquareText, LayoutDashboard, Bot, ShieldCheck } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { AnimatedHero } from "@/components/AnimatedHero";
@@ -9,14 +9,16 @@ const copy = {
     heroTitle: "AgriMithra 🌾",
     heroSubtitle: "AI-powered farming assistant in Telugu & English",
     getStarted: "Get Started",
-    tryDemo: "Try Demo",
+    tryDemo: "Explore Preview",
+    demoHint: "Login required for full access.",
+    gatedHint: "Sign up to save, personalize, or continue.",
     featuresTitle: "Core Features",
     cropAssistant: "Crop Assistant",
-    cropText: "Upload crop photos and get quick disease insights.",
+    cropText: "Upload crop photos and receive disease detection, confidence score, and actionable first-step treatment guidance.",
     schemeFinder: "Scheme Finder",
-    schemeText: "Discover eligible government schemes in minutes.",
+    schemeText: "Find matching central and state schemes based on crop, land profile, and farmer eligibility details.",
     newsSummarizer: "News Summarizer",
-    newsText: "Understand local agri news in simple language.",
+    newsText: "Get local agricultural headlines with simple AI summaries, key impact, and practical next-step recommendations.",
     languageTitle: "Choose Your Language",
     languageText: "Switch between English and Telugu across the full UI.",
     english: "English",
@@ -31,14 +33,16 @@ const copy = {
     heroTitle: "అగ్రిమిత్ర 🌾",
     heroSubtitle: "తెలుగు & ఇంగ్లీష్‌లో AI ఆధారిత వ్యవసాయ సహాయకుడు",
     getStarted: "ప్రారంభించండి",
-    tryDemo: "డెమో ప్రయత్నించండి",
+    tryDemo: "ప్రీవ్యూ చూడండి",
+    demoHint: "పూర్తి యాక్సెస్ కోసం లాగిన్ అవసరం.",
+    gatedHint: "సేవ్ చేయడానికి, వ్యక్తిగతీకరించడానికి లేదా కొనసాగడానికి సైన్ అప్ చేయండి.",
     featuresTitle: "ప్రధాన ఫీచర్లు",
     cropAssistant: "పంట సహాయకుడు",
-    cropText: "పంట ఫోటో అప్‌లోడ్ చేసి వ్యాధి సమాచారం వెంటనే పొందండి.",
+    cropText: "పంట ఫోటోలు అప్‌లోడ్ చేసి వ్యాధి గుర్తింపు, కాన్ఫిడెన్స్ స్కోర్ మరియు ప్రారంభ చికిత్స సూచనలు పొందండి.",
     schemeFinder: "పథకాల శోధకుడు",
-    schemeText: "మీకు సరిపడే ప్రభుత్వ పథకాలు త్వరగా కనుగొనండి.",
+    schemeText: "పంట, భూమి వివరాలు, అర్హత ఆధారంగా మీకు సరిపడే కేంద్ర మరియు రాష్ట్ర పథకాలు తెలుసుకోండి.",
     newsSummarizer: "న్యూస్ సమ్మరైజర్",
-    newsText: "స్థానిక వ్యవసాయ వార్తలను సులభమైన భాషలో అర్థం చేసుకోండి.",
+    newsText: "స్థానిక వ్యవసాయ వార్తలను AI సమ్మరీతో, ప్రభావం మరియు తదుపరి చర్యలతో సులభంగా తెలుసుకోండి.",
     languageTitle: "మీ భాషను ఎంచుకోండి",
     languageText: "మొత్తం UI ను ఇంగ్లీష్ మరియు తెలుగు మధ్య మార్చండి.",
     english: "ఇంగ్లీష్",
@@ -58,18 +62,36 @@ export default function Home() {
   const homeCopy = copy[lang];
 
   const navItems = [
-    { key: "nav.dashboard", path: "/dashboard", gated: false },
-    { key: "nav.assistant", path: "/assistant", gated: true },
-    { key: "nav.schemes", path: "/schemes", gated: true },
-    { key: "nav.news", path: "/news", gated: true },
-    { key: "nav.aiAssistant", path: "/ai-assistant", gated: true },
-    ...(isAdmin ? [{ key: "nav.admin", path: "/admin", gated: true }] : []),
-    { key: isLoggedIn ? "profile.logout" : "btn.login", path: isLoggedIn ? "/dashboard" : "/login", gated: false },
+    { key: "nav.dashboard", path: "/dashboard", gated: false, icon: LayoutDashboard },
+    { key: "nav.assistant", path: "/assistant", gated: true, icon: ScanLine },
+    { key: "nav.schemes", path: "/schemes", gated: true, icon: Landmark },
+    { key: "nav.news", path: "/news", gated: true, icon: Newspaper },
+    { key: "nav.aiAssistant", path: "/ai-assistant", gated: true, icon: Bot },
+    ...(isAdmin ? [{ key: "nav.admin", path: "/admin", gated: true, icon: ShieldCheck }] : []),
   ];
+
+  const handleNavClick = (item) => {
+    if (isLoggedIn) {
+      navigate(item.path);
+      return;
+    }
+
+    if (item.path === "/dashboard") {
+      navigate("/preview");
+      return;
+    }
+
+    if (item.gated) {
+      navigate("/signup");
+      return;
+    }
+
+    navigate(item.path);
+  };
 
   const handleModuleClick = (path) => {
     if (!isLoggedIn) {
-      navigate("/login");
+      navigate("/signup");
     } else {
       navigate(path);
     }
@@ -78,61 +100,84 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5fff6] via-[#f8fbf7] to-[#eef7f0] text-foreground">
       <header className="sticky top-0 z-40 border-b border-white/50 bg-white/65 backdrop-blur-xl">
-        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between gap-4">
-          <button onClick={() => navigate("/")} className="flex items-center gap-2.5">
+        <div className="w-full px-3 sm:px-4 py-3 flex items-center gap-2 sm:gap-3 md:gap-4">
+          <button onClick={() => navigate("/")} className="flex items-center gap-2.5 shrink-0">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-sm">
               <span className="text-primary-foreground font-heading font-bold text-sm">AM</span>
             </div>
             <span className="font-heading font-semibold text-foreground text-base sm:text-lg">{tr("brand.name")}</span>
           </button>
 
-          <nav className="hidden lg:flex items-center gap-1.5 rounded-full border border-white/70 bg-white/55 px-2 py-1">
+          <nav className="hidden lg:flex flex-1 items-center justify-center gap-1.5 rounded-full border border-white/70 bg-white/55 px-2 py-1">
             {navItems.map((item) => (
               <button
                 key={item.path}
-                onClick={() => (item.gated && !isLoggedIn ? navigate("/login") : navigate(item.path))}
-                className="rounded-full px-3 py-1.5 text-xs font-medium text-foreground/85 hover:text-foreground hover:bg-white transition"
+                onClick={() => handleNavClick(item)}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-foreground/85 hover:text-foreground hover:bg-white transition flex items-center gap-1.5"
               >
+                <item.icon className="h-3.5 w-3.5" />
                 {tr(item.key)}
               </button>
             ))}
           </nav>
 
-          <div className="inline-flex items-center rounded-full border border-primary/20 bg-white/70 backdrop-blur p-1 gap-1">
-            <button
-              type="button"
-              onClick={() => setLang("en")}
-              className={`rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-300 ${
-                lang === "en"
-                  ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-md"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {homeCopy.english}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLang("te")}
-              className={`rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-300 ${
-                lang === "te"
-                  ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-md"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {homeCopy.telugu}
-            </button>
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            {!isLoggedIn && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => navigate("/login")}
+                  className="rounded-full px-4 py-2 text-xs sm:text-sm font-semibold border border-primary/30 bg-white/80 text-primary hover:bg-white transition-all duration-300"
+                >
+                  {tr("btn.login")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/signup")}
+                  className="rounded-full px-4 py-2 text-xs sm:text-sm font-semibold bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300"
+                >
+                  {tr("btn.signup")}
+                </button>
+              </>
+            )}
+
+            <div className="inline-flex items-center rounded-full border border-primary/20 bg-white/70 backdrop-blur p-1 gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setLang("en")}
+                className={`rounded-full px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold transition-all duration-300 ${
+                  lang === "en"
+                    ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-md"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang("te")}
+                className={`rounded-full px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold transition-all duration-300 ${
+                  lang === "te"
+                    ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-md"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                తె
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="lg:hidden border-t border-white/60 bg-white/55 px-3 py-2 overflow-x-auto">
-          <div className="mx-auto max-w-6xl flex items-center gap-2">
-            {navItems.map((item) => (
+        <div className="lg:hidden border-t border-white/60 bg-white/55 px-3 py-2">
+          <div className="grid grid-cols-5 gap-1">
+            {navItems.slice(0, 5).map((item) => (
               <button
                 key={`mobile-${item.path}`}
-                onClick={() => (item.gated && !isLoggedIn ? navigate("/login") : navigate(item.path))}
-                className="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium text-foreground/85 bg-white/70 border border-white/80"
+                onClick={() => handleNavClick(item)}
+                className="flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl text-foreground/70 hover:text-primary hover:bg-white/60 transition"
               >
-                {tr(item.key)}
+                <item.icon className="h-4 w-4" />
+                <span className="text-[10px] font-medium leading-tight text-center">{tr(item.key)}</span>
               </button>
             ))}
           </div>
@@ -144,7 +189,7 @@ export default function Home() {
         <section className="rounded-3xl border border-white/50 bg-white/70 backdrop-blur-lg p-7 shadow-md md:p-10 hover:shadow-lg transition duration-300 mb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div>
-              <h1 className="font-heading text-5xl font-bold tracking-tight md:text-6xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              <h1 className="font-heading text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 {homeCopy.heroTitle}
               </h1>
               <p className="mt-4 max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed">
@@ -152,18 +197,19 @@ export default function Home() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <button
-                  onClick={() => navigate(isLoggedIn ? "/dashboard" : "/login")}
+                  onClick={() => navigate(isLoggedIn ? "/dashboard" : "/signup")}
                   className="inline-flex items-center rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95"
                 >
                   {homeCopy.getStarted}
                 </button>
                 <button
-                  onClick={() => navigate("/dashboard")}
+                  onClick={() => navigate("/preview")}
                   className="inline-flex items-center rounded-2xl border-2 border-primary/30 bg-white/50 backdrop-blur px-6 py-3.5 text-sm font-semibold text-primary transition-all duration-300 hover:bg-white hover:border-primary hover:shadow-lg hover:scale-105 active:scale-95"
                 >
                   {homeCopy.tryDemo}
                 </button>
               </div>
+              <p className="mt-3 text-sm font-medium text-muted-foreground">{homeCopy.demoHint}</p>
             </div>
             <div className="flex justify-center">
               <AnimatedHero />
@@ -174,6 +220,7 @@ export default function Home() {
         {/* Features Section */}
         <section className="mb-10 animate-slide-up">
           <h2 className="mb-6 font-heading text-3xl font-bold">{homeCopy.featuresTitle}</h2>
+          {!isLoggedIn && <p className="mb-4 text-sm text-muted-foreground">{homeCopy.gatedHint}</p>}
           <div className="grid gap-4 md:grid-cols-3">
             {[
               { icon: ScanLine, title: homeCopy.cropAssistant, text: homeCopy.cropText, path: "/assistant" },

@@ -61,6 +61,15 @@
 @layer base {
   * {
     @apply border-border;
+    /* Prevent any element from overflowing its container horizontally */
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    /* Prevent horizontal scroll at the document level */
+    overflow-x: hidden;
+    width: 100%;
   }
 
   body {
@@ -117,6 +126,20 @@
   @keyframes typing {
     0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
     40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* iOS safe-area bottom inset for bottom nav */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 
   .pulse-gentle {

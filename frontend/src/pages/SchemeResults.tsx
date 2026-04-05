@@ -148,18 +148,22 @@ export default function SchemeResults() {
       </button>
 
       <div className="space-y-2">
-        <h1 className="font-heading text-3xl md:text-4xl font-bold text-foreground">
+        <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">
           {t("schemes.title")}
         </h1>
-        <p className="text-muted-foreground">
-          {t("schemes.state")}: {localizedState} | {t("schemes.land")}:{" "}
-          {landInHectares.toFixed(2)} {t("schemes.unit_hectares")} ({landInAcres.toFixed(2)} {t("schemes.unit_acres")}) |{" "}
-          {enteredAnnualIncome
-            ? `₹${Number(enteredAnnualIncome.replace(/,/g, "")).toLocaleString("en-IN")}`
-            : result.profile.annualIncome
-              ? `₹${Number(result.profile.annualIncome).toLocaleString("en-IN")}`
-              : t("schemes.not_entered")}
-        </p>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <span>{t("schemes.state")}: <span className="font-medium text-foreground">{localizedState}</span></span>
+          <span className="text-border hidden sm:inline">·</span>
+          <span>{t("schemes.land")}: <span className="font-medium text-foreground">{landInHectares.toFixed(2)} {t("schemes.unit_hectares")} ({landInAcres.toFixed(2)} {t("schemes.unit_acres")})</span></span>
+          <span className="text-border hidden sm:inline">·</span>
+          <span>
+            {enteredAnnualIncome
+              ? `₹${Number(enteredAnnualIncome.replace(/,/g, "")).toLocaleString("en-IN")}`
+              : result.profile.annualIncome
+                ? `₹${Number(result.profile.annualIncome).toLocaleString("en-IN")}`
+                : t("schemes.not_entered")}
+          </span>
+        </div>
       </div>
 
       <div className="grid gap-4">
@@ -180,11 +184,11 @@ export default function SchemeResults() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
-                className="rounded-2xl border border-border bg-card p-6 space-y-4 hover:shadow-md transition"
+                className="rounded-2xl border border-border bg-card p-4 sm:p-6 space-y-4 hover:shadow-md transition"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <h2 className="text-xl font-semibold text-foreground">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-base sm:text-xl font-semibold text-foreground break-words">
                       {scheme.name}
                     </h2>
                     {scheme.level && (

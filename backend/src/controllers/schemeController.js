@@ -73,6 +73,13 @@ export const checkEligibility = async (req, res) => {
       income: annualIncome ?? 0,
       state,
       language,
+      hasAadhaar: body.hasAadhaar,
+      hasBankAccount: body.hasBankAccount,
+      hasCropCultivation: body.hasCropCultivation,
+      hasCropInsuranceNeed: body.hasCropInsuranceNeed,
+      needsIrrigation: body.needsIrrigation,
+      hasEnrolledBeforeSeason: body.hasEnrolledBeforeSeason,
+      isIndianResident: body.isIndianResident,
     });
 
     const localizeState = (value) => {
@@ -95,7 +102,7 @@ export const checkEligibility = async (req, res) => {
         : (language === 'te' ? 'జాతీయ' : 'National'),
       summary: s.description || s.summary || '',
       reason: s.eligibility || (language === 'te' ? 'మీ వివరాలకు సరిపోతుంది.' : 'Matches your profile details.'),
-      sources: [s.applyAt].filter(Boolean),
+      sources: [s.applyAt, s.officialSource].filter(Boolean),
       applySteps: [s.benefit, s.applyAt].filter(Boolean),
     }));
 

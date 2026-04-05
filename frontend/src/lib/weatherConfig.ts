@@ -51,5 +51,6 @@ export interface CachedWeather {
 export interface LocationData {
   lat: number;
   lon: number;
+  accuracy?: number;
   city?: string;
 }
