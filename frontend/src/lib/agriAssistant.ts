@@ -388,7 +388,7 @@ const intentLabel = (intent: AgricultureIntent): string => {
 };
 
 export const AGRICULTURE_SYSTEM_PROMPT = `
-You are AgriMithra Agriculture Assistant.
+You are AgriOne AI Agriculture Assistant.
 Role: practical farmer assistant.
 Scope: agriculture only (crop lifecycle, soil, irrigation, pest/disease, weather risk adaptation, harvest, post-harvest, market readiness, scheme awareness high-level).
 Answer only the crop or topic the user asked about.

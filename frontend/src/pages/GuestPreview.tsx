@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n";
 
 const previewCopy = {
   en: {
-    title: "Explore AgriMithra Preview",
+    title: "Explore AgriOne AI Preview",
     subtitle:
       "This is a read-only guest preview. You can explore how each module works before creating an account.",
     ctaLine: "Sign up to save, personalize, or continue.",
@@ -26,7 +26,7 @@ const previewCopy = {
     highIntent: "High-intent actions like uploads, chat history, and saved preferences require login.",
   },
   te: {
-    title: "అగ్రిమిత్ర ప్రీవ్యూ చూడండి",
+    title: "AgriOne AI ప్రీవ్యూ చూడండి",
     subtitle:
       "ఇది రీడ్-ఒన్లీ గెస్ట్ ప్రీవ్యూ. ఖాతా సృష్టించే ముందు ప్రతి మాడ్యూల్ ఎలా పనిచేస్తుందో చూడండి.",
     ctaLine: "సేవ్ చేయడానికి, వ్యక్తిగతీకరించడానికి లేదా కొనసాగడానికి సైన్ అప్ చేయండి.",

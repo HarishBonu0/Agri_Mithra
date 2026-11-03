@@ -3,7 +3,7 @@ export type Lang = "en" | "te";
 export const translations = {
   en: {
     brand: {
-      name: "AgriMithra",
+      name: "AgriOne AI",
     },
     nav: {
       dashboard: "Dashboard",
@@ -17,7 +17,7 @@ export const translations = {
       placeholder: "Search...",
     },
     home: {
-      heroTitle: "AgriMithra 🌾",
+      heroTitle: "AgriOne AI 🌾",
       heroSubtitle: "AI-powered farming assistant in Telugu & English",
       getStarted: "Get Started",
       tryDemo: "Try Demo",
@@ -32,11 +32,11 @@ export const translations = {
       languageText: "Switch between English and Telugu across the full UI.",
       english: "English",
       telugu: "Telugu",
-      benefitsTitle: "Why Farmers Choose AgriMithra",
+      benefitsTitle: "Why Farmers Choose AgriOne AI",
       b1: "Instant crop diagnosis",
       b2: "Government scheme guidance",
       b3: "Local news in simple language",
-      footer: "AgriMithra - AI support for every field.",
+      footer: "AgriOne AI - AI support for every field.",
     },
     dashboard: {
       welcome: "Welcome back, Farmer",
@@ -134,7 +134,7 @@ export const translations = {
       loginTitle: "Welcome Back",
       loginSubtitle: "Login with your mobile number to continue.",
       signupTitle: "Create Account",
-      signupSubtitle: "Sign up to access AgriMithra modules.",
+      signupSubtitle: "Sign up to access AgriOne AI modules.",
       forgotTitle: "Reset Password",
       forgotSubtitle: "Verify your mobile number with OTP and set a new password.",
       loginRequired: "Login Required",
@@ -322,7 +322,7 @@ export const translations = {
         weatherGuide: "For weather insights, check Dashboard weather. It shows risk and farming advice based on current conditions.",
         weatherRainTip: "Rain is expected. Avoid spraying pesticides now and plan field work after weather improves.",
         schemeNoEligibility: "I do not calculate eligibility here. Please use Scheme Finder, and I can help you understand the result.",
-        moduleOverview: "AgriMithra modules: Crop Assistant for crop analysis, Scheme Finder for government schemes, Dashboard for weather insights.",
+        moduleOverview: "AgriOne AI modules: Crop Assistant for crop analysis, Scheme Finder for government schemes, Dashboard for weather insights.",
         defaultHelp: "I can guide you to Crop Assistant, Scheme Finder, or Weather. Tell me what you need.",
         uploadReceived: "File received. I can guide next steps based on your question.",
       },
@@ -356,7 +356,7 @@ export const translations = {
   },
   te: {
     brand: {
-      name: "అగ్రిమిత్ర",
+      name: "AgriOne AI",
     },
     nav: {
       dashboard: "డాష్‌బోర్డ్",
@@ -370,7 +370,7 @@ export const translations = {
       placeholder: "శోధించండి...",
     },
     home: {
-      heroTitle: "అగ్రిమిత్ర 🌾",
+      heroTitle: "AgriOne AI 🌾",
       heroSubtitle: "తెలుగు & ఇంగ్లీష్‌లో AI ఆధారిత వ్యవసాయ సహాయకుడు",
       getStarted: "ప్రారంభించండి",
       tryDemo: "డెమో ప్రయత్నించండి",
@@ -385,11 +385,11 @@ export const translations = {
       languageText: "మొత్తం UI ను ఇంగ్లీష్ మరియు తెలుగు మధ్య మార్చండి.",
       english: "ఇంగ్లీష్",
       telugu: "తెలుగు",
-      benefitsTitle: "రైతులు అగ్రిమిత్రను ఎందుకు ఎంచుకుంటున్నారు",
+      benefitsTitle: "రైతులు AgriOne AI ని ఎందుకు ఎంచుకుంటున్నారు",
       b1: "తక్షణ పంట నిర్ధారణ",
       b2: "ప్రభుత్వ పథకాల మార్గదర్శకం",
       b3: "సులభమైన భాషలో స్థానిక వార్తలు",
-      footer: "అగ్రిమిత్ర - ప్రతి పొలానికి AI తోడ్పాటు.",
+      footer: "AgriOne AI - ప్రతి పొలానికి AI తోడ్పాటు.",
     },
     dashboard: {
       welcome: "మళ్ళీ స్వాగతం, రైతు",
@@ -487,7 +487,7 @@ export const translations = {
       loginTitle: "తిరిగి స్వాగతం",
       loginSubtitle: "కొనసాగించడానికి మీ మొబైల్ నంబర్ ఉపయోగించి లాగిన్ చేయండి.",
       signupTitle: "ఖాతా సృష్టించండి",
-      signupSubtitle: "AgriMithra మాడ్యూల్‌ల యాక్సెస్ చేయడానికి సైన్ అప్ చేయండి.",
+      signupSubtitle: "AgriOne AI మాడ్యూల్‌ల యాక్సెస్ చేయడానికి సైన్ అప్ చేయండి.",
       forgotTitle: "పాస్‌వర్డ్ రీసెట్ చేయండి",
       forgotSubtitle: "OTP తో మీ మొబైల్ నంబర్ ధృవీకరించండి మరియు కొత్త పాస్‌వర్డ్ సెట్ చేయండి.",
       loginRequired: "లాగిన్ అవసరం",
@@ -675,7 +675,7 @@ export const translations = {
         weatherGuide: "వాతావరణ సూచనలు కోసం డాష్‌బోర్డ్‌లో వాతావరణ విభాగాన్ని చూడండి. అది ప్రమాద స్థాయి మరియు వ్యవసాయ సలహా చూపిస్తుంది.",
         weatherRainTip: "వర్షం వచ్చే అవకాశం ఉంది. ఇప్పుడు పురుగుమందుల స్ప్రే చేయవద్దు, వాతావరణం మెరుగైన తర్వాత పనులు ప్లాన్ చేయండి.",
         schemeNoEligibility: "ఇక్కడ నేను అర్హత లెక్కించను. దయచేసి పథకాల శోధకుడిని ఉపయోగించండి; ఫలితాన్ని అర్థం చేసుకోవడంలో నేను సహాయం చేస్తాను.",
-        moduleOverview: "అగ్రిమిత్ర మాడ్యూల్‌లు: పంట విశ్లేషణకు పంట సహాయకుడు, ప్రభుత్వ పథకాలకు పథకాల శోధకుడు, వాతావరణ సూచనలకు డాష్‌బోర్డ్.",
+        moduleOverview: "AgriOne AI మాడ్యూల్‌లు: పంట విశ్లేషణకు పంట సహాయకుడు, ప్రభుత్వ పథకాలకు పథకాల శోధకుడు, వాతావరణ సూచనలకు డాష్‌బోర్డ్.",
         defaultHelp: "నేను పంట సహాయకుడు, పథకాల శోధకుడు లేదా వాతావరణానికి మీను మార్గనిర్దేశం చేయగలను. మీకు ఏది కావాలి?",
         uploadReceived: "ఫైల్ అందింది. మీ ప్రశ్న ఆధారంగా తర్వాతి స్టెప్ చెబుతాను.",
       },

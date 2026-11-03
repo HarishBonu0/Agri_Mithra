@@ -38,7 +38,7 @@ services:
       - key: OPENROUTER_SITE_URL
         value: ""
       - key: OPENROUTER_APP_NAME
-        value: Agri_Mytra
+        value: AgriOne AI
       - key: ROBOFLOW_API_KEY
         sync: false
       - key: ROBOFLOW_URL

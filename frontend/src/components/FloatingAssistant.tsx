@@ -32,7 +32,7 @@ export default function FloatingAssistant() {
   const text = useMemo(() => {
     if (lang === "te") {
       return {
-        title: "అగ్రిమిత్ర చాట్",
+        title: "AgriOne AI చాట్",
         subtitle: "ఏ వ్యవసాయ ప్రశ్నైనా అడగండి",
         placeholder: "మీ ప్రశ్న టైప్ చేయండి...",
         askButton: "పంపండి",
@@ -40,7 +40,7 @@ export default function FloatingAssistant() {
         loginHint: "చాట్ చేయడానికి దయచేసి లాగిన్ అవ్వండి.",
         loginButton: "లాగిన్",
         signupButton: "సైన్ అప్",
-        welcome: "నమస్కారం రైతు గారూ. నేను అగ్రిమిత్ర. మీ వ్యవసాయ సందేహం చెప్పండి.",
+        welcome: "నమస్కారం రైతు గారూ. నేను AgriOne AI. మీ వ్యవసాయ సందేహం చెప్పండి.",
         launcher: "AI చాట్",
         voice: "వాయిస్",
         listening: "వింటోంది...",
@@ -48,7 +48,7 @@ export default function FloatingAssistant() {
     }
 
     return {
-      title: "AgriMithra Chat",
+      title: "AgriOne AI Chat",
       subtitle: "Ask any agriculture question",
       placeholder: "Type your question...",
       askButton: "Send",
@@ -56,7 +56,7 @@ export default function FloatingAssistant() {
       loginHint: "Please login to start chatting.",
       loginButton: "Login",
       signupButton: "Sign up",
-      welcome: "Hello farmer. I am AgriMithra. Ask me any agriculture question.",
+      welcome: "Hello farmer. I am AgriOne AI. Ask me any agriculture question.",
       launcher: "AI Chat",
       voice: "Voice",
       listening: "Listening...",

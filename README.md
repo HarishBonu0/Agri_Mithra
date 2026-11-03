@@ -1,6 +1,6 @@
-# Agri_Mytra
+# AgriOne AI
 
-Agri_Mytra is an AI-powered agriculture assistant for farmers, with support for English and Telugu.
+AgriOne AI is an AI-powered agriculture assistant for farmers, with support for English and Telugu.
 
 It includes:
 - Crop analysis support
@@ -18,7 +18,7 @@ It includes:
 ## Project Structure
 
 ```text
-Agri_Mytra/
+AgriOne_AI/
   backend/    # Express API, controllers, services, DB models
   frontend/   # React app (Vite)
 ```

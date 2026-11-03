@@ -6,7 +6,7 @@ import { AnimatedHero } from "@/components/AnimatedHero";
 
 const copy = {
   en: {
-    heroTitle: "AgriMithra 🌾",
+    heroTitle: "AgriOne AI 🌾",
     heroSubtitle: "AI-powered farming assistant in Telugu & English",
     getStarted: "Get Started",
     tryDemo: "Explore Preview",
@@ -23,14 +23,14 @@ const copy = {
     languageText: "Switch between English and Telugu across the full UI.",
     english: "English",
     telugu: "Telugu",
-    benefitsTitle: "Why Farmers Choose AgriMithra",
+    benefitsTitle: "Why Farmers Choose AgriOne AI",
     b1: "Instant crop diagnosis",
     b2: "Government scheme guidance",
     b3: "Local news in simple language",
-    footer: "AgriMithra - AI support for every field."
+    footer: "AgriOne AI - AI support for every field."
   },
   te: {
-    heroTitle: "అగ్రిమిత్ర 🌾",
+    heroTitle: "AgriOne AI 🌾",
     heroSubtitle: "తెలుగు & ఇంగ్లీష్‌లో AI ఆధారిత వ్యవసాయ సహాయకుడు",
     getStarted: "ప్రారంభించండి",
     tryDemo: "ప్రీవ్యూ చూడండి",
@@ -47,11 +47,11 @@ const copy = {
     languageText: "మొత్తం UI ను ఇంగ్లీష్ మరియు తెలుగు మధ్య మార్చండి.",
     english: "ఇంగ్లీష్",
     telugu: "తెలుగు",
-    benefitsTitle: "రైతులు అగ్రిమిత్రను ఎందుకు ఎంచుకుంటున్నారు",
+    benefitsTitle: "రైతులు AgriOne AI ఎందుకు ఎంచుకుంటున్నారు",
     b1: "తక్షణ పంట నిర్ధారణ",
     b2: "ప్రభుత్వ పథకాల మార్గదర్శకం",
     b3: "సులభమైన భాషలో స్థానిక వార్తలు",
-    footer: "అగ్రిమిత్ర - ప్రతి పొలానికి AI తోడ్పాటు."
+    footer: "AgriOne AI - ప్రతి పొలానికి AI తోడ్పాటు."
   }
 };
 
